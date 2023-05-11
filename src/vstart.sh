@@ -4,6 +4,7 @@
 
 # abort on failure
 set -e
+set -x
 
 quoted_print() {
     for s in "$@"; do

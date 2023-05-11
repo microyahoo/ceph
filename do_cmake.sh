@@ -8,11 +8,6 @@ fi
 : ${BUILD_DIR:=build}
 : ${CEPH_GIT_DIR:=..}
 
-if [ -e $BUILD_DIR ]; then
-    echo "'$BUILD_DIR' dir already exists; either rm -rf '$BUILD_DIR' and re-run, or set BUILD_DIR env var to a different directory name"
-    exit 1
-fi
-
 PYBUILD="2"
 if [ -r /etc/os-release ]; then
   source /etc/os-release
@@ -67,14 +62,24 @@ if [[ ! "$ARGS $@" =~ "-DBOOST_J" ]] ; then
     [ -n "$ncpu" -a "$ncpu" -gt 1 ] && ARGS+=" -DBOOST_J=$(expr $ncpu / 2)"
 fi
 
-mkdir $BUILD_DIR
-cd $BUILD_DIR
 if type cmake3 > /dev/null 2>&1 ; then
     CMAKE=cmake3
 else
     CMAKE=cmake
 fi
-${CMAKE} $ARGS "$@" $CEPH_GIT_DIR || exit 1
+ARGS="-DCMAKE_BUILD_TYPE=Debug -DWITH_SEASTAR=OFF -DWITH_MGR_DASHBOARD_FRONTEND=OFF -DENABLE_GIT_VERSION=OFF -DWITH_TESTS=OFF -DWITH_CCACHE=ON -DWITH_LTTNG=OFF -DWITH_RDMA=OFF -DWITH_FUSE=OFF -DWITH_DPDK=OFF $ARGS"
+ARGS="-DCMAKE_EXPORT_COMPILE_COMMANDS=1 -DWITH_PYTHON3=3 -DWITH_RADOSGW_AMQP_ENDPOINT=OFF -DWITH_RADOSGW_KAFKA_ENDPOINT=OFF $ARGS"
+# ARGS="-DWITH_PYTHON3=3 -DWITH_RADOSGW_AMQP_ENDPOINT=OFF -DWITH_RADOSGW_KAFKA_ENDPOINT=OFF $ARGS"
+
+NPROC=${NPROC:-$(nproc --ignore=2)}
+
+if [ -e $BUILD_DIR ]; then
+    git submodule update --init --recursive
+else
+    mkdir $BUILD_DIR
+fi
+cd $BUILD_DIR
+${CMAKE} -DCMAKE_C_FLAGS="-O0 -g3 -gdwarf-4" -DCMAKE_CXX_FLAGS="-O0 -g3 -gdwarf-4" $ARGS "$@" $CEPH_GIT_DIR || exit 1 
 set +x
 
 # minimal config to find plugins
