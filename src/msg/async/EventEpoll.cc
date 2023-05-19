@@ -61,7 +61,7 @@ int EpollDriver::add_event(int fd, int cur_mask, int add_mask)
   int op;
   op = cur_mask == EVENT_NONE ? EPOLL_CTL_ADD: EPOLL_CTL_MOD;
 
-  ee.events = EPOLLET;
+  ee.events = EPOLLET; // Edge Triggered 边缘触发, 一次触发，全部读取
   add_mask |= cur_mask; /* Merge old events */
   if (add_mask & EVENT_READABLE)
     ee.events |= EPOLLIN;
@@ -122,7 +122,7 @@ int EpollDriver::event_wait(std::vector<FiredFileEvent> &fired_events, struct ti
 
   retval = epoll_wait(epfd, events, nevent,
                       tvp ? (tvp->tv_sec*1000 + tvp->tv_usec/1000) : -1);
-  if (retval > 0) {
+  if (retval > 0) { // 触发事件的个数
     numevents = retval;
     fired_events.resize(numevents);
 

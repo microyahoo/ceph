@@ -58,7 +58,7 @@ class PosixConnectedSocketImpl final : public ConnectedSocketImpl {
       return 1;
     } else if (r < 0) {
       return r;
-    } else {
+    } else { // r > 0
       return 0;
     }
   }
@@ -83,7 +83,7 @@ class PosixConnectedSocketImpl final : public ConnectedSocketImpl {
     while (1) {
       MSGR_SIGPIPE_STOPPER;
       ssize_t r;
-      r = ::sendmsg(fd, &msg, MSG_NOSIGNAL | (more ? MSG_MORE : 0));
+      r = ::sendmsg(fd, &msg, MSG_NOSIGNAL | (more ? MSG_MORE : 0)); // 将消息通过 socket 发送出去
       if (r < 0) {
         int err = ceph_sock_errno();
         if (err == EINTR) {
@@ -128,10 +128,10 @@ class PosixConnectedSocketImpl final : public ConnectedSocketImpl {
       msg.msg_iov = msgvec;
       unsigned msglen = 0;
       for (auto iov = msgvec; iov != msgvec + size; iov++) {
-	iov->iov_base = (void*)(pb->c_str());
-	iov->iov_len = pb->length();
-	msglen += pb->length();
-	++pb;
+        iov->iov_base = (void*)(pb->c_str());
+        iov->iov_len = pb->length();
+        msglen += pb->length();
+        ++pb;
       }
       ssize_t r = do_sendmsg(_fd, msg, msglen, left_pbrs || more);
       if (r < 0)
@@ -234,9 +234,9 @@ class PosixServerSocketImpl : public ServerSocketImpl {
 
 int PosixServerSocketImpl::accept(ConnectedSocket *sock, const SocketOptions &opt, entity_addr_t *out, Worker *w) {
   ceph_assert(sock);
-  sockaddr_storage ss;
+  sockaddr_storage ss; // peer addr
   socklen_t slen = sizeof(ss);
-  int sd = accept_cloexec(_fd, (sockaddr*)&ss, &slen);
+  int sd = accept_cloexec(_fd, (sockaddr*)&ss, &slen); // 接收连接请求
   if (sd < 0) {
     return -ceph_sock_errno();
   }
@@ -259,8 +259,8 @@ int PosixServerSocketImpl::accept(ConnectedSocket *sock, const SocketOptions &op
   out->set_sockaddr((sockaddr*)&ss);
   handler.set_priority(sd, opt.priority, out->get_family());
 
-  std::unique_ptr<PosixConnectedSocketImpl> csi(new PosixConnectedSocketImpl(handler, *out, sd, true));
-  *sock = ConnectedSocket(std::move(csi));
+  std::unique_ptr<PosixConnectedSocketImpl> csi(new PosixConnectedSocketImpl(handler, *out, sd, true)); // 创建连接成功的 socket
+  *sock = ConnectedSocket(std::move(csi)); // 返回给用户使用
   return 0;
 }
 
@@ -307,7 +307,7 @@ int PosixWorker::listen(entity_addr_t &sa,
     return r;
   }
 
-  *sock = ServerSocket(
+  *sock = ServerSocket( // 创建 ServerSocket，返回给用户，可以用此 socket 进行 accept 请求
           std::unique_ptr<PosixServerSocketImpl>(
 	    new PosixServerSocketImpl(net, listen_sd, sa, addr_slot)));
   return 0;
@@ -319,7 +319,7 @@ int PosixWorker::connect(const entity_addr_t &addr, const SocketOptions &opts, C
   if (opts.nonblock) {
     sd = net.nonblock_connect(addr, opts.connect_bind_addr);
   } else {
-    sd = net.connect(addr, opts.connect_bind_addr);
+    sd = net.connect(addr, opts.connect_bind_addr); // 发起连接
   }
 
   if (sd < 0) {
@@ -327,7 +327,7 @@ int PosixWorker::connect(const entity_addr_t &addr, const SocketOptions &opts, C
   }
 
   net.set_priority(sd, opts.priority, addr.get_family());
-  *socket = ConnectedSocket(
+  *socket = ConnectedSocket( // 创建 ConnectedSocket，返回给用户，可以用此 socket 进行 send/read
       std::unique_ptr<PosixConnectedSocketImpl>(new PosixConnectedSocketImpl(net, addr, sd, !opts.nonblock)));
   return 0;
 }

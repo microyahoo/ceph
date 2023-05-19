@@ -46,7 +46,7 @@ class Processor {
   AsyncMessenger *msgr;
   ceph::NetHandler net;
   Worker *worker;
-  std::vector<ServerSocket> listen_sockets;
+  std::vector<ServerSocket> listen_sockets; // 绑定到指定地址后返回的 ServerSockets，可以用它来进行 accept
   EventCallbackRef listen_handler;
 
   class C_processor_accept;
@@ -261,7 +261,7 @@ private:
    * NOTE: a Asyncconnection* with state CLOSED may still be in the map but is considered
    * invalid and can be replaced by anyone holding the msgr lock
    */
-  ceph::unordered_map<entity_addrvec_t, AsyncConnectionRef> conns;
+  ceph::unordered_map<entity_addrvec_t, AsyncConnectionRef> conns; // 连接
 
   /**
    * list of connection are in the process of accepting
@@ -323,7 +323,7 @@ private:
     local_connection->peer_addrs = *my_addrs;
     local_connection->peer_type = my_name.type();
     local_connection->set_features(CEPH_FEATURES_ALL);
-    ms_deliver_handle_fast_connect(local_connection.get());
+    ms_deliver_handle_fast_connect(local_connection.get()); // ?
   }
 
   void shutdown_connections(bool queue_reset);
@@ -401,7 +401,7 @@ public:
     deleted_conns.emplace(std::move(conn));
     conn->unregister();
 
-    if (deleted_conns.size() >= cct->_conf.get_val<uint64_t>("ms_async_reap_threshold")) {
+    if (deleted_conns.size() >= cct->_conf.get_val<uint64_t>("ms_async_reap_threshold")) { // 默认值 5
       local_worker->center.dispatch_event_external(reap_handler);
     }
   }

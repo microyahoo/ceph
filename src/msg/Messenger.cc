@@ -43,7 +43,7 @@ Messenger *Messenger::create(CephContext *cct, const std::string &type,
     //r = ceph::util::generate_random_number(0, 1);
   }
   if (r == 0 || type.find("async") != std::string::npos)
-    return new AsyncMessenger(cct, name, type, std::move(lname), nonce);
+    return new AsyncMessenger(cct, name, type, std::move(lname), nonce); // 创建 AsyncMesenger
   lderr(cct) << "unrecognized ms_type '" << type << "'" << dendl;
   return nullptr;
 }

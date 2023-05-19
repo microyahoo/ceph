@@ -62,7 +62,7 @@ typedef EventCallback* EventCallbackRef;
 
 struct FiredFileEvent {
   int fd;
-  int mask;
+  int mask; // 记录 read/write
 };
 
 /*
@@ -102,8 +102,8 @@ class EventCenter {
 
   struct FileEvent {
     int mask;
-    EventCallbackRef read_cb;
-    EventCallbackRef write_cb;
+    EventCallbackRef read_cb;  // 读回调
+    EventCallbackRef write_cb; // 写回调
     FileEvent(): mask(0), read_cb(NULL), write_cb(NULL) {}
   };
 
@@ -153,7 +153,7 @@ class EventCenter {
 
  private:
   CephContext *cct;
-  std::string type;
+  std::string type; // poxis, rdma or dpdk
   int nevent;
   // Used only to external event
   pthread_t owner = 0;
@@ -161,16 +161,16 @@ class EventCenter {
   std::atomic_ulong external_num_events;
   std::deque<EventCallbackRef> external_events;
   std::vector<FileEvent> file_events;
-  EventDriver *driver;
+  EventDriver *driver; // event center 对应的 event driver, 分别对应 epoll, kqueue, dpdk, select driver
   std::multimap<clock_type::time_point, TimeEvent> time_events;
   // Keeps track of all of the pollers currently defined.  We don't
   // use an intrusive list here because it isn't reentrant: we need
   // to add/remove elements while the center is traversing the list.
   std::vector<Poller*> pollers;
-  std::map<uint64_t, std::multimap<clock_type::time_point, TimeEvent>::iterator> event_map;
+  std::map<uint64_t, std::multimap<clock_type::time_point, TimeEvent>::iterator> event_map; // event id -> map
   uint64_t time_event_next_id;
-  int notify_receive_fd;
-  int notify_send_fd;
+  int notify_receive_fd; // pip fds[0]
+  int notify_send_fd; // pip fds[1]
   ceph::NetHandler net;
   EventCallbackRef notify_handler;
   unsigned center_id;
@@ -204,7 +204,7 @@ class EventCenter {
   uint64_t create_time_event(uint64_t milliseconds, EventCallbackRef ctxt);
   void delete_file_event(int fd, int mask);
   void delete_time_event(uint64_t id);
-  int process_events(unsigned timeout_microseconds, ceph::timespan *working_dur = nullptr);
+  int process_events(unsigned timeout_microseconds, ceph::timespan *working_dur = nullptr); // 异步处理 pending events
   void wakeup();
 
   // Used by external thread
@@ -248,16 +248,16 @@ class EventCenter {
     ceph_assert(i < MAX_EVENTCENTER && global_centers);
     EventCenter *c = global_centers->centers[i];
     ceph_assert(c);
-    if (always_async) {
+    if (always_async) { // 异步,丢到 external_queue 后就立马返回
       C_submit_event<func> *event = new C_submit_event<func>(std::move(f), true);
       c->dispatch_event_external(event);
-    } else if (c->in_thread()) {
+    } else if (c->in_thread()) { // 如果跟 EventCenter 是同一个线程，则直接执行并返回
       f();
       return;
     } else {
       C_submit_event<func> event(std::move(f), false);
       c->dispatch_event_external(&event);
-      event.wait();
+      event.wait(); // 同步需 wait，等待 do_request 执行完毕才返回
     }
   };
 };

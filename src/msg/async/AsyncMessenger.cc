@@ -68,67 +68,67 @@ int Processor::bind(const entity_addrvec_t &bind_addrs,
   ldout(msgr->cct, 10) << __func__ << " " << bind_addrs << dendl;
 
   SocketOptions opts;
-  opts.nodelay = msgr->cct->_conf->ms_tcp_nodelay;
-  opts.rcbuf_size = msgr->cct->_conf->ms_tcp_rcvbuf;
+  opts.nodelay = msgr->cct->_conf->ms_tcp_nodelay; // default true
+  opts.rcbuf_size = msgr->cct->_conf->ms_tcp_rcvbuf; // default 0
 
   listen_sockets.resize(bind_addrs.v.size());
   *bound_addrs = bind_addrs;
 
-  for (unsigned k = 0; k < bind_addrs.v.size(); ++k) {
+  for (unsigned k = 0; k < bind_addrs.v.size(); ++k) { 
     auto& listen_addr = bound_addrs->v[k];
 
     /* bind to port */
     int r = -1;
 
-    for (int i = 0; i < conf->ms_bind_retry_count; i++) {
+    for (int i = 0; i < conf->ms_bind_retry_count; i++) { // default 3
       if (i > 0) {
-	lderr(msgr->cct) << __func__ << " was unable to bind. Trying again in "
-			 << conf->ms_bind_retry_delay << " seconds " << dendl;
-	sleep(conf->ms_bind_retry_delay);
+        lderr(msgr->cct) << __func__ << " was unable to bind. Trying again in "
+                 << conf->ms_bind_retry_delay << " seconds " << dendl;
+        sleep(conf->ms_bind_retry_delay); // default 5
       }
 
       if (listen_addr.get_port()) {
-	worker->center.submit_to(
-	  worker->center.get_id(),
-	  [this, k, &listen_addr, &opts, &r]() {
-	    r = worker->listen(listen_addr, k, opts, &listen_sockets[k]);
-	  }, false);
-	if (r < 0) {
-	  lderr(msgr->cct) << __func__ << " unable to bind to " << listen_addr
-			   << ": " << cpp_strerror(r) << dendl;
-	  continue;
-	}
+        worker->center.submit_to(
+          worker->center.get_id(),
+          [this, k, &listen_addr, &opts, &r]() {
+            r = worker->listen(listen_addr, k, opts, &listen_sockets[k]);
+          }, false);
+        if (r < 0) {
+          lderr(msgr->cct) << __func__ << " unable to bind to " << listen_addr
+                   << ": " << cpp_strerror(r) << dendl;
+          continue;
+        }
       } else {
-	// try a range of ports
-	for (int port = msgr->cct->_conf->ms_bind_port_min;
-	     port <= msgr->cct->_conf->ms_bind_port_max;
-	     port++) {
-	  if (avoid_ports.count(port))
-	    continue;
+        // try a range of ports
+        for (int port = msgr->cct->_conf->ms_bind_port_min; // 6800
+             port <= msgr->cct->_conf->ms_bind_port_max; // 7300
+             port++) { // 总共 500 个 port， 会选择一个进行 listen
+          if (avoid_ports.count(port))
+            continue;
 
-	  listen_addr.set_port(port);
-	  worker->center.submit_to(
-	    worker->center.get_id(),
-	    [this, k, &listen_addr, &opts, &r]() {
-	      r = worker->listen(listen_addr, k, opts, &listen_sockets[k]);
-	    }, false);
-	  if (r == 0)
-	    break;
-	}
-	if (r < 0) {
-	  lderr(msgr->cct) << __func__ << " unable to bind to " << listen_addr
-			   << " on any port in range "
-			   << msgr->cct->_conf->ms_bind_port_min
-			   << "-" << msgr->cct->_conf->ms_bind_port_max << ": "
-			   << cpp_strerror(r) << dendl;
-	  listen_addr.set_port(0); // Clear port before retry, otherwise we shall fail again.
-	  continue;
-	}
-	ldout(msgr->cct, 10) << __func__ << " bound on random port "
-			     << listen_addr << dendl;
+          listen_addr.set_port(port);
+          worker->center.submit_to( // 向 EventCenter 提交一个外部事件，当外部事件执行时会调用下面的 worker.listen，从而更新 listen_sockets
+            worker->center.get_id(),
+            [this, k, &listen_addr, &opts, &r]() {
+              r = worker->listen(listen_addr, k, opts, &listen_sockets[k]); // 事件被执行后，listen_socket 就被更新，可以用它来进行 accept
+            }, false);
+          if (r == 0)
+            break;
+        }
+        if (r < 0) {
+          lderr(msgr->cct) << __func__ << " unable to bind to " << listen_addr
+                   << " on any port in range "
+                   << msgr->cct->_conf->ms_bind_port_min
+                   << "-" << msgr->cct->_conf->ms_bind_port_max << ": "
+                   << cpp_strerror(r) << dendl;
+          listen_addr.set_port(0); // Clear port before retry, otherwise we shall fail again.
+          continue;
+        }
+        ldout(msgr->cct, 10) << __func__ << " bound on random port "
+                     << listen_addr << dendl;
       }
       if (r == 0) {
-	break;
+        break;
       }
     }
 
@@ -152,7 +152,7 @@ int Processor::bind(const entity_addrvec_t &bind_addrs,
 void Processor::start()
 {
   ldout(msgr->cct, 1) << __func__ << dendl;
-
+  // 向 worker 的事件中心提交一个外部事件，当这个事件执行的时候，就是执行第二个参数的匿名函数对象，也就是将 fd 加入事件中心进行管理
   // start thread
   worker->center.submit_to(worker->center.get_id(), [this]() {
       for (auto& listen_socket : listen_sockets) {
@@ -164,16 +164,16 @@ void Processor::start()
             return;
           }
 	  worker->center.create_file_event(listen_socket.fd(), EVENT_READABLE,
-					   listen_handler); }
+					   listen_handler); } // 创建可读事件，将 listen_socket 对应的 fd 加入到 epoll 进行管理, 回调函数执行的是 accept()
       }
     }, false);
 }
 
-void Processor::accept()
+void Processor::accept() // Processor 的 listen_handler 对应的回调函数
 {
   SocketOptions opts;
-  opts.nodelay = msgr->cct->_conf->ms_tcp_nodelay;
-  opts.rcbuf_size = msgr->cct->_conf->ms_tcp_rcvbuf;
+  opts.nodelay = msgr->cct->_conf->ms_tcp_nodelay; // 默认 true
+  opts.rcbuf_size = msgr->cct->_conf->ms_tcp_rcvbuf; // 0
   opts.priority = msgr->get_socket_priority();
 
   for (auto& listen_socket : listen_sockets) {
@@ -182,51 +182,51 @@ void Processor::accept()
     unsigned accept_error_num = 0;
 
     while (true) {
-      entity_addr_t addr;
+      entity_addr_t addr; // peer addr
       ConnectedSocket cli_socket;
-      Worker *w = worker;
+      Worker *w = worker; // 一个 worker 可以对应多条连接
       if (!msgr->get_stack()->support_local_listen_table())
-	w = msgr->get_stack()->get_worker();
+        w = msgr->get_stack()->get_worker();
       else
-	++w->references;
-      int r = listen_socket.accept(&cli_socket, opts, &addr, w);
+        ++w->references; // 更新 worker 的引用数
+      int r = listen_socket.accept(&cli_socket, opts, &addr, w); // 成功 accept 之后会设置 connectedSocket，用于收发数据。注意这里传入的 worker 没有用到
       if (r == 0) {
-	ldout(msgr->cct, 10) << __func__ << " accepted incoming on sd "
+        ldout(msgr->cct, 10) << __func__ << " accepted incoming on sd "
 			     << cli_socket.fd() << dendl;
 
-	msgr->add_accept(
-	  w, std::move(cli_socket),
-	  msgr->get_myaddrs().v[listen_socket.get_addr_slot()],
-	  addr);
-	accept_error_num = 0;
-	continue;
+        msgr->add_accept(
+          w, std::move(cli_socket),
+          msgr->get_myaddrs().v[listen_socket.get_addr_slot()],
+          addr);
+        accept_error_num = 0;
+        continue;
       } else {
-	--w->references;
-	if (r == -EINTR) {
-	  continue;
-	} else if (r == -EAGAIN) {
-	  break;
-	} else if (r == -EMFILE || r == -ENFILE) {
-	  lderr(msgr->cct) << __func__ << " open file descriptions limit reached sd = " << listen_socket.fd()
-			   << " errno " << r << " " << cpp_strerror(r) << dendl;
-	  if (++accept_error_num > msgr->cct->_conf->ms_max_accept_failures) {
-	    lderr(msgr->cct) << "Proccessor accept has encountered enough error numbers, just do ceph_abort()." << dendl;
-	    ceph_abort();
-	  }
-	  continue;
-	} else if (r == -ECONNABORTED) {
-	  ldout(msgr->cct, 0) << __func__ << " it was closed because of rst arrived sd = " << listen_socket.fd()
-			      << " errno " << r << " " << cpp_strerror(r) << dendl;
-	  continue;
-	} else {
-	  lderr(msgr->cct) << __func__ << " no incoming connection?"
-			   << " errno " << r << " " << cpp_strerror(r) << dendl;
-	  if (++accept_error_num > msgr->cct->_conf->ms_max_accept_failures) {
-	    lderr(msgr->cct) << "Proccessor accept has encountered enough error numbers, just do ceph_abort()." << dendl;
-	    ceph_abort();
-	  }
-	  continue;
-	}
+        --w->references;
+        if (r == -EINTR) {
+          continue;
+        } else if (r == -EAGAIN) {
+          break;
+        } else if (r == -EMFILE || r == -ENFILE) {
+          lderr(msgr->cct) << __func__ << " open file descriptions limit reached sd = " << listen_socket.fd()
+                   << " errno " << r << " " << cpp_strerror(r) << dendl;
+          if (++accept_error_num > msgr->cct->_conf->ms_max_accept_failures) { // 4
+            lderr(msgr->cct) << "Proccessor accept has encountered enough error numbers, just do ceph_abort()." << dendl;
+            ceph_abort();
+          }
+          continue;
+        } else if (r == -ECONNABORTED) {
+          ldout(msgr->cct, 0) << __func__ << " it was closed because of rst arrived sd = " << listen_socket.fd()
+                      << " errno " << r << " " << cpp_strerror(r) << dendl;
+          continue;
+        } else {
+          lderr(msgr->cct) << __func__ << " no incoming connection?"
+                   << " errno " << r << " " << cpp_strerror(r) << dendl;
+          if (++accept_error_num > msgr->cct->_conf->ms_max_accept_failures) {
+            lderr(msgr->cct) << "Proccessor accept has encountered enough error numbers, just do ceph_abort()." << dendl;
+            ceph_abort();
+          }
+          continue;
+        }
       }
     }
   }
@@ -283,7 +283,7 @@ AsyncMessenger::AsyncMessenger(CephContext *cct, entity_name_t name,
     dispatch_queue(cct, this, mname),
     nonce(_nonce)
 {
-  std::string transport_type = "posix";
+  std::string transport_type = "posix"; // default transport type is posix
   if (type.find("rdma") != std::string::npos)
     transport_type = "rdma";
   else if (type.find("dpdk") != std::string::npos)
@@ -291,19 +291,19 @@ AsyncMessenger::AsyncMessenger(CephContext *cct, entity_name_t name,
 
   auto single = &cct->lookup_or_create_singleton_object<StackSingleton>(
     "AsyncMessenger::NetworkStack::" + transport_type, true, cct);
-  single->ready(transport_type);
+  single->ready(transport_type); // 创建指定类型的 NetworkStack
   stack = single->stack.get();
   stack->start();
   local_worker = stack->get_worker();
   local_connection = ceph::make_ref<AsyncConnection>(cct, this, &dispatch_queue,
-					 local_worker, true, true);
+					 local_worker, true, true); // LoopbackProtocolV1
   init_local_connection();
   reap_handler = new C_handle_reap(this);
   unsigned processor_num = 1;
   if (stack->support_local_listen_table())
     processor_num = stack->get_num_worker();
   for (unsigned i = 0; i < processor_num; ++i)
-    processors.push_back(new Processor(this, stack->get_worker(i), cct));
+    processors.push_back(new Processor(this, stack->get_worker(i), cct)); // ? 创建 Processor
 }
 
 /**
@@ -334,7 +334,7 @@ void AsyncMessenger::ready()
   std::lock_guard l{lock};
   for (auto &&p : processors)
     p->start();
-  dispatch_queue.start();
+  dispatch_queue.start(); // ? 还没看
 }
 
 int AsyncMessenger::shutdown()
@@ -374,7 +374,7 @@ int AsyncMessenger::bind(const entity_addr_t &bind_addr)
   return bindv(entity_addrvec_t(a));
 }
 
-int AsyncMessenger::bindv(const entity_addrvec_t &bind_addrs)
+int AsyncMessenger::bindv(const entity_addrvec_t &bind_addrs) // bind 到指定地址
 {
   lock.lock();
 
@@ -462,7 +462,7 @@ int AsyncMessenger::rebind(const std::set<int>& avoid_ports)
 
 int AsyncMessenger::client_bind(const entity_addr_t &bind_addr)
 {
-  if (!cct->_conf->ms_bind_before_connect)
+  if (!cct->_conf->ms_bind_before_connect) //  默认值 false
     return 0;
   std::lock_guard l{lock};
   if (did_bind) {
@@ -578,13 +578,13 @@ void AsyncMessenger::add_accept(Worker *w, ConnectedSocket cli_socket,
 {
   std::lock_guard l{lock};
   auto conn = ceph::make_ref<AsyncConnection>(cct, this, &dispatch_queue, w,
-						listen_addr.is_msgr2(), false);
+						listen_addr.is_msgr2(), false); // 创建新的 AsyncConnection
   conn->accept(std::move(cli_socket), listen_addr, peer_addr);
-  accepting_conns.insert(conn);
+  accepting_conns.insert(conn); // 将其添加到 accepting_conns
 }
 
-AsyncConnectionRef AsyncMessenger::create_connect(
-  const entity_addrvec_t& addrs, int type, bool anon)
+AsyncConnectionRef AsyncMessenger::create_connect( // 创建 connection
+  const entity_addrvec_t& addrs, int type, bool anon) // type 代表 mon， osd， mds 等
 {
   ceph_assert(ceph_mutex_is_locked(lock));
 
@@ -681,7 +681,7 @@ int AsyncMessenger::send_to(Message *m, int type, const entity_addrvec_t& addrs)
     return -EINVAL;
   }
 
-  if (cct->_conf->ms_dump_on_send) {
+  if (cct->_conf->ms_dump_on_send) { // default false
     m->encode(-1, MSG_CRC_ALL);
     ldout(cct, 0) << __func__ << " submit_message " << *m << "\n";
     m->get_payload().hexdump(*_dout);

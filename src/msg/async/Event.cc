@@ -176,7 +176,7 @@ EventCenter::~EventCenter()
 {
   {
     std::lock_guard<std::mutex> l(external_lock);
-    while (!external_events.empty()) {
+    while (!external_events.empty()) { // 执行所有的 external events 并且从 queue 中移除
       EventCallbackRef e = external_events.front();
       if (e)
         e->do_request(0);
@@ -186,13 +186,13 @@ EventCenter::~EventCenter()
   time_events.clear();
   //assert(time_events.empty());
 
-  if (notify_receive_fd >= 0)
+  if (notify_receive_fd >= 0) // 关闭 pipe 创建的 local fd
     compat_closesocket(notify_receive_fd);
   if (notify_send_fd >= 0)
     compat_closesocket(notify_send_fd);
 
   delete driver;
-  if (notify_handler)
+  if (notify_handler) // 移除 driver 以及供 wakeup 使用的 notify_handler
     delete notify_handler;
 }
 
@@ -206,8 +206,8 @@ void EventCenter::set_owner()
       EventCenter::AssociatedCenters>(
 	"AsyncMessenger::EventCenter::global_center::" + type, true);
     ceph_assert(global_centers);
-    global_centers->centers[center_id] = this;
-    if (driver->need_wakeup()) {
+    global_centers->centers[center_id] = this; // ? 主要是搭配 `submit_to` 使用
+    if (driver->need_wakeup()) { // 如果当前 driver 需要 wakeup，则创建一个 read event handler
       notify_handler = new C_handle_notify(this, cct);
       int r = create_file_event(notify_receive_fd, EVENT_READABLE, notify_handler);
       ceph_assert(r == 0);
@@ -219,7 +219,7 @@ int EventCenter::create_file_event(int fd, int mask, EventCallbackRef ctxt)
 {
   ceph_assert(in_thread());
   int r = 0;
-  if (fd >= nevent) {
+  if (fd >= nevent) { // 如果 fd 超出 nevent，则扩容
     int new_size = nevent << 2;
     while (fd >= new_size)
       new_size <<= 2;
@@ -233,10 +233,10 @@ int EventCenter::create_file_event(int fd, int mask, EventCallbackRef ctxt)
     nevent = new_size;
   }
 
-  EventCenter::FileEvent *event = _get_file_event(fd);
+  EventCenter::FileEvent *event = _get_file_event(fd); // 根据 fd 从 file_events 中获取对应的 file event
   ldout(cct, 20) << __func__ << " create event started fd=" << fd << " mask=" << mask
                  << " original mask is " << event->mask << dendl;
-  if (event->mask == mask)
+  if (event->mask == mask) // 如果 mask 相同，那代表沒有任何改变
     return 0;
 
   r = driver->add_event(fd, event->mask, mask);
@@ -250,9 +250,9 @@ int EventCenter::create_file_event(int fd, int mask, EventCallbackRef ctxt)
     return r;
   }
 
-  event->mask |= mask;
+  event->mask |= mask; // 也有可能是修改已经存在 event 的 mask (read/write)
   if (mask & EVENT_READABLE) {
-    event->read_cb = ctxt;
+    event->read_cb = ctxt; // 更新对应的 event handler
   }
   if (mask & EVENT_WRITABLE) {
     event->write_cb = ctxt;
@@ -276,20 +276,20 @@ void EventCenter::delete_file_event(int fd, int mask)
   if (!event->mask)
     return ;
 
-  int r = driver->del_event(fd, event->mask, mask);
+  int r = driver->del_event(fd, event->mask, mask); // 移除 event
   if (r < 0) {
     // see create_file_event
     ceph_abort_msg("BUG!");
   }
 
   if (mask & EVENT_READABLE && event->read_cb) {
-    event->read_cb = nullptr;
+    event->read_cb = nullptr; // 删除对应的 callback
   }
   if (mask & EVENT_WRITABLE && event->write_cb) {
     event->write_cb = nullptr;
   }
 
-  event->mask = event->mask & (~mask);
+  event->mask = event->mask & (~mask); // 修改 event 对应的 mask
   ldout(cct, 30) << __func__ << " delete event end fd=" << fd << " mask=" << mask
                  << " current mask is " << event->mask << dendl;
 }
@@ -303,7 +303,7 @@ uint64_t EventCenter::create_time_event(uint64_t microseconds, EventCallbackRef 
   EventCenter::TimeEvent event;
   clock_type::time_point expire = clock_type::now() + std::chrono::microseconds(microseconds);
   event.id = id;
-  event.time_cb = ctxt;
+  event.time_cb = ctxt; // 设置 callback
   std::multimap<clock_type::time_point, TimeEvent>::value_type s_val(expire, event);
   auto it = time_events.insert(std::move(s_val));
   event_map[id] = it;
@@ -340,7 +340,7 @@ void EventCenter::wakeup()
   #ifdef _WIN32
   int n = send(notify_send_fd, &buf, sizeof(buf), 0);
   #else
-  int n = write(notify_send_fd, &buf, sizeof(buf));
+  int n = write(notify_send_fd, &buf, sizeof(buf)); // 向 pipe 中写入一个字符进行通知
   #endif
   if (n < 0) {
     if (ceph_sock_errno() != EAGAIN) {
@@ -360,7 +360,7 @@ int EventCenter::process_time_events()
 
   while (!time_events.empty()) {
     auto it = time_events.begin();
-    if (now >= it->first) {
+    if (now >= it->first) { // 如果当前时间超过该 time event 的 expire time
       TimeEvent &e = it->second;
       EventCallbackRef cb = e.time_cb;
       uint64_t id = e.id;
@@ -405,7 +405,7 @@ int EventCenter::process_events(unsigned timeout_microseconds,  ceph::timespan *
 
   ldout(cct, 30) << __func__ << " wait second " << tv.tv_sec << " usec " << tv.tv_usec << dendl;
   std::vector<FiredFileEvent> fired_events;
-  numevents = driver->event_wait(fired_events, &tv);
+  numevents = driver->event_wait(fired_events, &tv); // 等待 IO 事件的发生
   auto working_start = ceph::mono_clock::now();
   for (int event_id = 0; event_id < numevents; event_id++) {
     int rfired = 0;
@@ -423,7 +423,7 @@ int EventCenter::process_events(unsigned timeout_microseconds,  ceph::timespan *
     }
 
     if (event->mask & fired_events[event_id].mask & EVENT_WRITABLE) {
-      if (!rfired || event->read_cb != event->write_cb) {
+      if (!rfired || event->read_cb != event->write_cb) { // 注意这里执行完 read callback 之后就不会再执行 write callback 了
         cb = event->write_cb;
         cb->do_request(fired_events[event_id].fd);
       }

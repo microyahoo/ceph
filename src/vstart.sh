@@ -719,6 +719,8 @@ $DAEMONOPTS
         osd class load list = *
         osd class default list = *
         osd fast shutdown = false
+        osd_op_thread_timeout = 1500
+        osd_op_thread_suicide_timeout = 1500
 
         filestore wbthrottle xfs ios start flusher = 10
         filestore wbthrottle xfs ios hard limit = 20

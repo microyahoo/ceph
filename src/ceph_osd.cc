@@ -528,7 +528,7 @@ flushjournal_out:
   }
 
   // messengers
-  std::string msg_type = g_conf().get_val<std::string>("ms_type");
+  std::string msg_type = g_conf().get_val<std::string>("ms_type"); // default ms_type = async+posix
   std::string public_msg_type =
     g_conf().get_val<std::string>("ms_public_type");
   std::string cluster_msg_type =
@@ -536,8 +536,8 @@ flushjournal_out:
 
   public_msg_type = public_msg_type.empty() ? msg_type : public_msg_type;
   cluster_msg_type = cluster_msg_type.empty() ? msg_type : cluster_msg_type;
-  uint64_t nonce = Messenger::get_pid_nonce();
-  Messenger *ms_public = Messenger::create(g_ceph_context, public_msg_type,
+  uint64_t nonce = Messenger::get_pid_nonce(); // 生成 pid
+  Messenger *ms_public = Messenger::create(g_ceph_context, public_msg_type, // 创建 Messenger
 					   entity_name_t::OSD(whoami), "client", nonce);
   Messenger *ms_cluster = Messenger::create(g_ceph_context, cluster_msg_type,
 					    entity_name_t::OSD(whoami), "cluster", nonce);
@@ -566,10 +566,10 @@ flushjournal_out:
           << dendl;
 
   uint64_t message_size =
-    g_conf().get_val<Option::size_t>("osd_client_message_size_cap");
+    g_conf().get_val<Option::size_t>("osd_client_message_size_cap");  // default 500M
   boost::scoped_ptr<Throttle> client_byte_throttler(
     new Throttle(g_ceph_context, "osd_client_bytes", message_size));
-  uint64_t message_cap = g_conf().get_val<uint64_t>("osd_client_message_cap");
+  uint64_t message_cap = g_conf().get_val<uint64_t>("osd_client_message_cap"); // default 256
   boost::scoped_ptr<Throttle> client_msg_throttler(
     new Throttle(g_ceph_context, "osd_client_messages", message_cap));
 
@@ -607,26 +607,26 @@ flushjournal_out:
   ms_objecter->set_default_policy(Messenger::Policy::lossy_client(CEPH_FEATURE_OSDREPLYMUX));
 
   entity_addrvec_t public_addrs, cluster_addrs;
-  r = pick_addresses(g_ceph_context, CEPH_PICK_ADDRESS_PUBLIC, &public_addrs,
+  r = pick_addresses(g_ceph_context, CEPH_PICK_ADDRESS_PUBLIC, &public_addrs, // 获取 public 地址
 		     iface_preferred_numa_node);
   if (r < 0) {
     derr << "Failed to pick public address." << dendl;
     forker.exit(1);
   }
-  r = pick_addresses(g_ceph_context, CEPH_PICK_ADDRESS_CLUSTER, &cluster_addrs,
+  r = pick_addresses(g_ceph_context, CEPH_PICK_ADDRESS_CLUSTER, &cluster_addrs, // 获取 cluster 地址
 		     iface_preferred_numa_node);
   if (r < 0) {
     derr << "Failed to pick cluster address." << dendl;
     forker.exit(1);
   }
 
-  if (ms_public->bindv(public_addrs) < 0)
+  if (ms_public->bindv(public_addrs) < 0) // 绑定 public 地址
     forker.exit(1);
 
-  if (ms_cluster->bindv(cluster_addrs) < 0)
+  if (ms_cluster->bindv(cluster_addrs) < 0) // 绑定 cluster 地址
     forker.exit(1);
 
-  bool is_delay = g_conf().get_val<bool>("osd_heartbeat_use_min_delay_socket");
+  bool is_delay = g_conf().get_val<bool>("osd_heartbeat_use_min_delay_socket"); // default false
   if (is_delay) {
     ms_hb_front_client->set_socket_priority(SOCKET_PRIORITY_MIN_DELAY);
     ms_hb_back_client->set_socket_priority(SOCKET_PRIORITY_MIN_DELAY);
@@ -666,7 +666,7 @@ flushjournal_out:
   srand(time(NULL) + getpid());
 
   ceph::async::io_context_pool poolctx(
-    cct->_conf.get_val<std::uint64_t>("osd_asio_thread_count"));
+    cct->_conf.get_val<std::uint64_t>("osd_asio_thread_count")); // ? default 2
 
   MonClient mc(g_ceph_context, poolctx);
   if (mc.build_initial_monmap() < 0)
@@ -699,7 +699,7 @@ flushjournal_out:
     forker.exit(1);
   }
 
-  ms_public->start();
+  ms_public->start(); // ? 启动 Messenger
   ms_hb_front_client->start();
   ms_hb_back_client->start();
   ms_hb_front_server->start();
@@ -708,7 +708,7 @@ flushjournal_out:
   ms_objecter->start();
 
   // start osd
-  err = osdptr->init();
+  err = osdptr->init(); // ? 启动 osd
   if (err < 0) {
     derr << TEXT_RED << " ** ERROR: osd init failed: " << cpp_strerror(-err)
          << TEXT_NORMAL << dendl;

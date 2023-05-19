@@ -1055,11 +1055,11 @@ public:
       return -1;
     for (int i = n - 1; i != n; --i) {
       if (i < 0)
-	i = get_max_osd() - 1;
+        i = get_max_osd() - 1;
       if (i == n)
-	break;
+        break;
       if (is_up(i))
-	return i;
+        return i;
     }
     return -1;
   }

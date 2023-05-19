@@ -169,7 +169,7 @@ public:
       return statenames[state];
   }
 
-  AsyncMessenger *async_msgr;
+  AsyncMessenger *async_msgr; // 连接所对应的 messenger
   uint64_t conn_id;
   PerfCounters *logger;
   int state;
@@ -193,7 +193,7 @@ private:
   EventCallbackRef write_callback_handler;
   EventCallbackRef wakeup_handler;
   EventCallbackRef tick_handler;
-  char *recv_buf;
+  char *recv_buf; // min 512*2, default 4096*2
   uint32_t recv_max_prefetch;
   uint32_t recv_start;
   uint32_t recv_end;

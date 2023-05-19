@@ -219,7 +219,7 @@ class Worker {
   unsigned id;
 
   std::atomic_uint references;
-  EventCenter center;
+  EventCenter center; // 维护文件描述符以及注册的事件
 
   Worker(const Worker&) = delete;
   Worker& operator=(const Worker&) = delete;
@@ -302,7 +302,7 @@ class NetworkStack {
 
  protected:
   CephContext *cct;
-  std::vector<Worker*> workers;
+  std::vector<Worker*> workers; // 一个 NetworkStack 对应多个 workers
 
   explicit NetworkStack(CephContext *c);
  public:
@@ -313,7 +313,7 @@ class NetworkStack {
       delete w;
   }
 
-  static std::shared_ptr<NetworkStack> create(
+  static std::shared_ptr<NetworkStack> create( // 根据指定的 type 创建对应的 NetworkStack
     CephContext *c, const std::string &type);
 
   // backend need to override this method if backend doesn't support shared

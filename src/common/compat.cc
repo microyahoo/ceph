@@ -192,7 +192,7 @@ int accept_cloexec(int sockfd, struct sockaddr* addr, socklen_t* addrlen)
 #ifdef HAVE_ACCEPT4
   return accept4(sockfd, addr, addrlen, SOCK_CLOEXEC);
 #else
-  int fd = accept(sockfd, addr, addrlen);
+  int fd = accept(sockfd, addr, addrlen); // addr 设置为 peer addr
   if (fd == -1)
     return -1;
 

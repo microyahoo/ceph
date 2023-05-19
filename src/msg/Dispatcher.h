@@ -27,7 +27,7 @@ class Connection;
 class CryptoKey;
 class KeyStore;
 
-class Dispatcher {
+class Dispatcher { // 消息发送的目标接收者需要实现此接口
 public:
   explicit Dispatcher(CephContext *cct_)
     : cct(cct_)

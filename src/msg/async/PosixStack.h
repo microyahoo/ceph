@@ -30,11 +30,11 @@ class PosixWorker : public Worker {
  public:
   PosixWorker(CephContext *c, unsigned i)
       : Worker(c, i), net(c) {}
-  int listen(entity_addr_t &sa,
+  int listen(entity_addr_t &sa, // 监听指定的地址@entity_addr_t，成功后设置并返回 ServerSocket
 	     unsigned addr_slot,
 	     const SocketOptions &opt,
 	     ServerSocket *socks) override;
-  int connect(const entity_addr_t &addr, const SocketOptions &opts, ConnectedSocket *socket) override;
+  int connect(const entity_addr_t &addr, const SocketOptions &opts, ConnectedSocket *socket) override; // 发起连接，创建 ConnectedSocket，返回给用户，可以用此 socket 进行 send/read
 };
 
 class PosixNetworkStack : public NetworkStack {

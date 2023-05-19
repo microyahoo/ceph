@@ -118,11 +118,11 @@ AsyncConnection::AsyncConnection(CephContext *cct, AsyncMessenger *m, DispatchQu
     logger(w->get_perf_counter()),
     state(STATE_NONE), port(-1),
     dispatch_queue(q), recv_buf(NULL),
-    recv_max_prefetch(std::max<int64_t>(msgr->cct->_conf->ms_tcp_prefetch_max_size, TCP_PREFETCH_MIN_SIZE)),
+    recv_max_prefetch(std::max<int64_t>(msgr->cct->_conf->ms_tcp_prefetch_max_size, TCP_PREFETCH_MIN_SIZE)), // max(4096, 512)
     recv_start(0), recv_end(0),
     last_active(ceph::coarse_mono_clock::now()),
-    connect_timeout_us(cct->_conf->ms_connection_ready_timeout*1000*1000),
-    inactive_timeout_us(cct->_conf->ms_connection_idle_timeout*1000*1000),
+    connect_timeout_us(cct->_conf->ms_connection_ready_timeout*1000*1000), // 10 * 1000 * 1000
+    inactive_timeout_us(cct->_conf->ms_connection_idle_timeout*1000*1000), // 900 * 1000 * 1000
     msgr2(m2), state_offset(0),
     worker(w), center(&w->center),read_buffer(nullptr)
 {
@@ -139,7 +139,7 @@ AsyncConnection::AsyncConnection(CephContext *cct, AsyncMessenger *m, DispatchQu
   if (local) {
     protocol = std::unique_ptr<Protocol>(new LoopbackProtocolV1(this));
   } else if (m2) {
-    protocol = std::unique_ptr<Protocol>(new ProtocolV2(this));
+    protocol = std::unique_ptr<Protocol>(new ProtocolV2(this)); // v2 protocol
   } else {
     protocol = std::unique_ptr<Protocol>(new ProtocolV1(this));
   }
@@ -308,7 +308,7 @@ ssize_t AsyncConnection::write(ceph::buffer::list &bl,
     outgoing_bl.claim_append(bl);
     ssize_t r = _try_send(more);
     if (r > 0) {
-      writeCallback = callback;
+      writeCallback = callback; //注册写回调
     }
     return r;
 }
@@ -317,7 +317,7 @@ ssize_t AsyncConnection::write(ceph::buffer::list &bl,
 // else return < 0 means error
 ssize_t AsyncConnection::_try_send(bool more)
 {
-  if (async_msgr->cct->_conf->ms_inject_socket_failures && cs) {
+  if (async_msgr->cct->_conf->ms_inject_socket_failures && cs) { // 默认值 0
     if (rand() % async_msgr->cct->_conf->ms_inject_socket_failures == 0) {
       ldout(async_msgr->cct, 0) << __func__ << " injecting socket failure" << dendl;
       cs.shutdown();
@@ -327,7 +327,7 @@ ssize_t AsyncConnection::_try_send(bool more)
   ceph_assert(center->in_thread());
   ldout(async_msgr->cct, 25) << __func__ << " cs.send " << outgoing_bl.length()
                              << " bytes" << dendl;
-  ssize_t r = cs.send(outgoing_bl, more);
+  ssize_t r = cs.send(outgoing_bl, more); // 发送消息
   if (r < 0) {
     ldout(async_msgr->cct, 1) << __func__ << " send error: " << cpp_strerror(r) << dendl;
     return r;
@@ -336,12 +336,12 @@ ssize_t AsyncConnection::_try_send(bool more)
   ldout(async_msgr->cct, 10) << __func__ << " sent bytes " << r
                              << " remaining bytes " << outgoing_bl.length() << dendl;
 
-  if (!open_write && is_queued()) {
+  if (!open_write && is_queued()) { // 如果还有消息没有被发送出去
     center->create_file_event(cs.fd(), EVENT_WRITABLE, write_handler);
     open_write = true;
   }
 
-  if (open_write && !is_queued()) {
+  if (open_write && !is_queued()) { // 发送完毕
     center->delete_file_event(cs.fd(), EVENT_WRITABLE);
     open_write = false;
     if (writeCallback) {
@@ -362,7 +362,7 @@ void AsyncConnection::inject_delay() {
   }
 }
 
-void AsyncConnection::process() {
+void AsyncConnection::process() { // read_handler
   std::lock_guard<std::mutex> l(lock);
   last_active = ceph::coarse_mono_clock::now();
   recv_start_time = ceph::mono_clock::now();
@@ -386,10 +386,10 @@ void AsyncConnection::process() {
         center->delete_time_event(last_tick_id);
       }
       last_connect_started = ceph::coarse_mono_clock::now();
-      last_tick_id = center->create_time_event(
+      last_tick_id = center->create_time_event( // 创建定时事件
           connect_timeout_us, tick_handler);
 
-      if (cs) {
+      if (cs) { // 将之前的 connected socket 从 epoll 中移除并关闭
         center->delete_file_event(cs.fd(), EVENT_READABLE | EVENT_WRITABLE);
         cs.close();
       }
@@ -397,7 +397,7 @@ void AsyncConnection::process() {
       SocketOptions opts;
       opts.priority = async_msgr->get_socket_priority();
       opts.connect_bind_addr = msgr->get_myaddrs().front();
-      ssize_t r = worker->connect(target_addr, opts, &cs);
+      ssize_t r = worker->connect(target_addr, opts, &cs); // 调用 worker 的 connect 方法，设置 cs
       if (r < 0) {
         protocol->fault();
         return;
@@ -438,7 +438,7 @@ void AsyncConnection::process() {
     }
 
     case STATE_ACCEPTING: {
-      center->create_file_event(cs.fd(), EVENT_READABLE, read_handler);
+      center->create_file_event(cs.fd(), EVENT_READABLE, read_handler); // 设置 ConnectedSocket 可读，并将其添加到 epoll 进行管理，当有 IO 事件发生时触发新一轮的 process 流程进行状态机处理
       state = STATE_CONNECTION_ESTABLISHED;
 
       break;
@@ -501,15 +501,15 @@ void AsyncConnection::accept(ConnectedSocket socket,
 			     << " listen_addr " << listen_addr
 			     << " peer_addr " << peer_addr << dendl;
   ceph_assert(socket.fd() >= 0);
-
+// 设置 AsyncConnection 的监听地址和对端地址，同时更新其状态为 accepting，进入连接状态机处理，就可以进行收发消息
   std::lock_guard<std::mutex> l(lock);
   cs = std::move(socket);
   socket_addr = listen_addr;
   target_addr = peer_addr; // until we know better
-  state = STATE_ACCEPTING;
-  protocol->accept();
+  state = STATE_ACCEPTING; // 将连接状态设置为 accepting
+  protocol->accept(); // 将 msgr 协议状态设置为 START_ACCEPT
   // rescheduler connection in order to avoid lock dep
-  center->dispatch_event_external(read_handler);
+  center->dispatch_event_external(read_handler); // 调用 AsyncConnection::process() 进行状态机处理
 }
 
 int AsyncConnection::send_message(Message *m)
@@ -531,7 +531,7 @@ int AsyncConnection::send_message(Message *m)
 
   // optimistic think it's ok to encode(actually may broken now)
   if (!m->get_priority())
-    m->set_priority(async_msgr->get_default_send_priority());
+    m->set_priority(async_msgr->get_default_send_priority()); // 设置消息默认优先级
 
   m->get_header().src = async_msgr->get_myname();
   m->set_connection(this);
@@ -560,7 +560,7 @@ int AsyncConnection::send_message(Message *m)
   // may disturb users
   logger->inc(l_msgr_send_messages);
 
-  protocol->send_message(m);
+  protocol->send_message(m); // AsyncConnection::send_message -> ProtocolV2.send_message -> AsyncConnection.handle_write -> ProtocolV2::write_event -> ProtocolV2::write_message ->  AsyncConnection::_try_send -> ConnectedSocket.send
   return 0;
 }
 
@@ -757,7 +757,7 @@ void AsyncConnection::tick(uint64_t id)
   ldout(async_msgr->cct, 20) << __func__ << " last_id=" << last_tick_id
                              << " last_active=" << last_active << dendl;
   std::lock_guard<std::mutex> l(lock);
-  last_tick_id = 0;
+  last_tick_id = 0; // 清空 last_tick_id
   if (!is_connected()) {
     if (connect_timeout_us <=
         (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>

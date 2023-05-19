@@ -1131,9 +1131,9 @@ pair<ConnectionRef,ConnectionRef> OSDService::get_con_osd_hb(int peer, epoch_t f
     release_map(next_map);
     return ret;
   }
-  ret.first = osd->hb_back_client_messenger->connect_to_osd(
+  ret.first = osd->hb_back_client_messenger->connect_to_osd( // 通过 cluster addrs 连接到 peer osd
     next_map->get_hb_back_addrs(peer));
-  ret.second = osd->hb_front_client_messenger->connect_to_osd(
+  ret.second = osd->hb_front_client_messenger->connect_to_osd( // 通过 public addrs 连接到 peer osd
     next_map->get_hb_front_addrs(peer));
   release_map(next_map);
   return ret;
@@ -2329,12 +2329,12 @@ OSD::OSD(CephContext *cct_, ObjectStore *store_,
   heartbeat_thread(this),
   heartbeat_dispatcher(this),
   op_tracker(cct, cct->_conf->osd_enable_op_tracker,
-                  cct->_conf->osd_num_op_tracker_shard),
+                  cct->_conf->osd_num_op_tracker_shard), // 默认值 32
   test_ops_hook(NULL),
   op_shardedwq(
     this,
-    ceph::make_timespan(cct->_conf->osd_op_thread_timeout),
-    ceph::make_timespan(cct->_conf->osd_op_thread_suicide_timeout),
+    ceph::make_timespan(cct->_conf->osd_op_thread_timeout), // 默认值 15
+    ceph::make_timespan(cct->_conf->osd_op_thread_suicide_timeout), // 默认值 150
     &osd_op_tp),
   last_pg_create_epoch(0),
   boot_finisher(cct),
@@ -2367,7 +2367,7 @@ OSD::OSD(CephContext *cct_, ObjectStore *store_,
                                            cct->_conf->osd_op_history_duration);
   op_tracker.set_history_slow_op_size_and_threshold(cct->_conf->osd_op_history_slow_op_size,
                                                     cct->_conf->osd_op_history_slow_op_threshold);
-  ObjectCleanRegions::set_max_num_intervals(cct->_conf->osd_object_clean_region_max_num_intervals);
+  ObjectCleanRegions::set_max_num_intervals(cct->_conf->osd_object_clean_region_max_num_intervals); // 默认值 10
 #ifdef WITH_BLKIN
   std::stringstream ss;
   ss << "osd." << whoami;
@@ -3411,7 +3411,7 @@ int OSD::enable_disable_fuse(bool stop)
 
 size_t OSD::get_num_cache_shards()
 {
-  return cct->_conf.get_val<Option::size_t>("osd_num_cache_shards");
+  return cct->_conf.get_val<Option::size_t>("osd_num_cache_shards"); // 默认值 32
 }
 
 int OSD::get_num_op_shards()
@@ -3419,9 +3419,9 @@ int OSD::get_num_op_shards()
   if (cct->_conf->osd_op_num_shards)
     return cct->_conf->osd_op_num_shards;
   if (store_is_rotational)
-    return cct->_conf->osd_op_num_shards_hdd;
+    return cct->_conf->osd_op_num_shards_hdd; // 默认值 5
   else
-    return cct->_conf->osd_op_num_shards_ssd;
+    return cct->_conf->osd_op_num_shards_ssd; // 默认值 8
 }
 
 int OSD::get_num_op_threads()
@@ -3429,9 +3429,9 @@ int OSD::get_num_op_threads()
   if (cct->_conf->osd_op_num_threads_per_shard)
     return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard;
   if (store_is_rotational)
-    return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard_hdd;
+    return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard_hdd; // 默认值 1
   else
-    return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard_ssd;
+    return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard_ssd; // 默认值 2
 }
 
 float OSD::get_osd_recovery_sleep()
@@ -3452,10 +3452,10 @@ float OSD::get_osd_delete_sleep()
   if (osd_delete_sleep > 0)
     return osd_delete_sleep;
   if (!store_is_rotational && !journal_is_rotational)
-    return cct->_conf.get_val<double>("osd_delete_sleep_ssd");
+    return cct->_conf.get_val<double>("osd_delete_sleep_ssd"); // 1
   if (store_is_rotational && !journal_is_rotational)
-    return cct->_conf.get_val<double>("osd_delete_sleep_hybrid");
-  return cct->_conf.get_val<double>("osd_delete_sleep_hdd");
+    return cct->_conf.get_val<double>("osd_delete_sleep_hybrid"); // 1
+  return cct->_conf.get_val<double>("osd_delete_sleep_hdd"); // 5
 }
 
 int OSD::get_recovery_max_active()
@@ -3463,9 +3463,9 @@ int OSD::get_recovery_max_active()
   if (cct->_conf->osd_recovery_max_active)
     return cct->_conf->osd_recovery_max_active;
   if (store_is_rotational)
-    return cct->_conf->osd_recovery_max_active_hdd;
+    return cct->_conf->osd_recovery_max_active_hdd; // 默认值 3
   else
-    return cct->_conf->osd_recovery_max_active_ssd;
+    return cct->_conf->osd_recovery_max_active_ssd; // 默认值 10
 }
 
 float OSD::get_osd_snap_trim_sleep()
@@ -3508,6 +3508,7 @@ int OSD::init()
   dout(2) << "journal " << journal_path << dendl;
   ceph_assert(store);  // call pre_init() first!
 
+  // ? store 相关的操作，还没看
   store->set_cache_shards(get_num_cache_shards());
 
  int rotating_auth_attempts = 0;
@@ -3709,7 +3710,7 @@ int OSD::init()
 
   dout(2) << "superblock: I am osd." << superblock.whoami << dendl;
 
-  if (cct->_conf.get_val<bool>("osd_compact_on_start")) {
+  if (cct->_conf.get_val<bool>("osd_compact_on_start")) { // default false
     dout(2) << "compacting object store's omap" << dendl;
     store->compact();
   }
@@ -3763,9 +3764,9 @@ int OSD::init()
   // i'm ready!
   client_messenger->add_dispatcher_tail(&mgrc);
   client_messenger->add_dispatcher_tail(this);
-  cluster_messenger->add_dispatcher_head(this);
+  cluster_messenger->add_dispatcher_head(this); // 添加 osd 到 dispatch queue, 并启动 DispatchQueue 线程
 
-  hb_front_client_messenger->add_dispatcher_head(&heartbeat_dispatcher);
+  hb_front_client_messenger->add_dispatcher_head(&heartbeat_dispatcher); // 添加心跳 dispatcher 到队列
   hb_back_client_messenger->add_dispatcher_head(&heartbeat_dispatcher);
   hb_front_server_messenger->add_dispatcher_head(&heartbeat_dispatcher);
   hb_back_server_messenger->add_dispatcher_head(&heartbeat_dispatcher);
@@ -4765,10 +4766,10 @@ void OSD::_get_pgs(vector<PGRef> *v, bool clear_too)
     for (auto& j : s->pg_slots) {
       if (j.second->pg &&
 	  !j.second->pg->is_deleted()) {
-	v->push_back(j.second->pg);
-	if (clear_too) {
-	  s->_detach_pg(j.second.get());
-	}
+        v->push_back(j.second->pg);
+        if (clear_too) {
+          s->_detach_pg(j.second.get());
+        }
       }
     }
   }
@@ -5253,14 +5254,14 @@ void OSD::build_initial_pg_history(
 	   << dendl;
 }
 
-void OSD::_add_heartbeat_peer(int p)
+void OSD::_add_heartbeat_peer(int p) // 添加心跳 peer
 {
   if (p == whoami)
     return;
   HeartbeatInfo *hi;
 
   map<int,HeartbeatInfo>::iterator i = heartbeat_peers.find(p);
-  if (i == heartbeat_peers.end()) {
+  if (i == heartbeat_peers.end()) { // 新的 osd id
     pair<ConnectionRef,ConnectionRef> cons = service.get_con_osd_hb(p, get_osdmap_epoch());
     if (!cons.first)
       return;
@@ -5326,12 +5327,12 @@ void OSD::maybe_update_heartbeat_peers()
     } else if (!heartbeat_peers_need_update()) {
       utime_t dur = now - last_heartbeat_resample;
       if (dur > cct->_conf->osd_heartbeat_grace) {
-	dout(10) << "maybe_update_heartbeat_peers forcing update after " << dur << " seconds" << dendl;
-	heartbeat_set_peers_need_update();
-	last_heartbeat_resample = now;
-	// automatically clean up any stale heartbeat peers
-	// if we are unhealthy, then clean all
-	reset_heartbeat_peers(is_waiting_for_healthy());
+        dout(10) << "maybe_update_heartbeat_peers forcing update after " << dur << " seconds" << dendl;
+        heartbeat_set_peers_need_update();
+        last_heartbeat_resample = now;
+        // automatically clean up any stale heartbeat peers
+        // if we are unhealthy, then clean all
+        reset_heartbeat_peers(is_waiting_for_healthy());
       }
     }
   }
@@ -5349,7 +5350,7 @@ void OSD::maybe_update_heartbeat_peers()
   if (is_active()) {
     vector<PGRef> pgs;
     _get_pgs(&pgs);
-    for (auto& pg : pgs) {
+    for (auto& pg : pgs) { // 遍历 osd 负责的所有 pg
       pg->with_heartbeat_peers([&](int peer) {
 	  if (get_osdmap()->is_up(peer)) {
 	    _add_heartbeat_peer(peer);
@@ -5463,7 +5464,7 @@ void OSD::handle_osd_ping(MOSDPing *m)
     return;
   }
 
-  int from = m->get_source().num();
+  int from = m->get_source().num(); // 对端 osd
 
   heartbeat_lock.lock();
   if (is_stopping()) {
@@ -5496,50 +5497,50 @@ void OSD::handle_osd_ping(MOSDPing *m)
 
   switch (m->op) {
 
-  case MOSDPing::PING:
+  case MOSDPing::PING: // 处理心跳消息
     {
       if (cct->_conf->osd_debug_drop_ping_probability > 0) {
-	auto heartbeat_drop = debug_heartbeat_drops_remaining.find(from);
-	if (heartbeat_drop != debug_heartbeat_drops_remaining.end()) {
-	  if (heartbeat_drop->second == 0) {
-	    debug_heartbeat_drops_remaining.erase(heartbeat_drop);
-	  } else {
-	    --heartbeat_drop->second;
-	    dout(5) << "Dropping heartbeat from " << from
-		    << ", " << heartbeat_drop->second
-		    << " remaining to drop" << dendl;
-	    break;
-	  }
-	} else if (cct->_conf->osd_debug_drop_ping_probability >
-	           ((((double)(rand()%100))/100.0))) {
-	  heartbeat_drop =
-	    debug_heartbeat_drops_remaining.insert(std::make_pair(from,
-	                     cct->_conf->osd_debug_drop_ping_duration)).first;
-	  dout(5) << "Dropping heartbeat from " << from
-		  << ", " << heartbeat_drop->second
-		  << " remaining to drop" << dendl;
-	  break;
-	}
+        auto heartbeat_drop = debug_heartbeat_drops_remaining.find(from);
+        if (heartbeat_drop != debug_heartbeat_drops_remaining.end()) {
+          if (heartbeat_drop->second == 0) {
+            debug_heartbeat_drops_remaining.erase(heartbeat_drop);
+          } else {
+            --heartbeat_drop->second;
+            dout(5) << "Dropping heartbeat from " << from
+                << ", " << heartbeat_drop->second
+                << " remaining to drop" << dendl;
+            break;
+          }
+        } else if (cct->_conf->osd_debug_drop_ping_probability >
+                   ((((double)(rand()%100))/100.0))) {
+          heartbeat_drop =
+            debug_heartbeat_drops_remaining.insert(std::make_pair(from,
+                             cct->_conf->osd_debug_drop_ping_duration)).first;
+          dout(5) << "Dropping heartbeat from " << from
+              << ", " << heartbeat_drop->second
+              << " remaining to drop" << dendl;
+          break;
+        }
       }
 
       ceph::signedspan sender_delta_ub{};
       s->stamps->got_ping(
-	m->up_from,
-	mnow,
-	m->mono_send_stamp,
-	m->delta_ub,
-	&sender_delta_ub);
-      dout(20) << __func__ << " new stamps " << *s->stamps << dendl;
+        m->up_from,
+        mnow,
+        m->mono_send_stamp,
+        m->delta_ub,
+        &sender_delta_ub);
+          dout(20) << __func__ << " new stamps " << *s->stamps << dendl;
 
-      if (!cct->get_heartbeat_map()->is_healthy()) {
-	dout(10) << "internal heartbeat not healthy, dropping ping request"
-		 << dendl;
-	break;
+          if (!cct->get_heartbeat_map()->is_healthy()) {
+        dout(10) << "internal heartbeat not healthy, dropping ping request"
+             << dendl;
+        break;
       }
 
       Message *r = new MOSDPing(monc->get_fsid(),
 				curmap->get_epoch(),
-				MOSDPing::PING_REPLY,
+				MOSDPing::PING_REPLY, // 回复 ping reply 消息
 				m->ping_stamp,
 				m->mono_ping_stamp,
 				mnow,
@@ -5549,25 +5550,25 @@ void OSD::handle_osd_ping(MOSDPing *m)
       con->send_message(r);
 
       if (curmap->is_up(from)) {
-	if (is_active()) {
-	  ConnectionRef cluster_con = service.get_con_osd_cluster(
-	    from, curmap->get_epoch());
-	  if (cluster_con) {
-	    service.maybe_share_map(cluster_con.get(), curmap, m->map_epoch);
-	  }
-	}
+        if (is_active()) {
+          ConnectionRef cluster_con = service.get_con_osd_cluster(
+            from, curmap->get_epoch());
+          if (cluster_con) {
+            service.maybe_share_map(cluster_con.get(), curmap, m->map_epoch);
+          }
+        }
       } else if (!curmap->exists(from) ||
 		 curmap->get_down_at(from) > m->map_epoch) {
-	// tell them they have died
-	Message *r = new MOSDPing(monc->get_fsid(),
-				  curmap->get_epoch(),
-				  MOSDPing::YOU_DIED,
-				  m->ping_stamp,
-				  m->mono_ping_stamp,
-				  mnow,
-				  service.get_up_epoch(),
-				  cct->_conf->osd_heartbeat_min_size);
-	con->send_message(r);
+        // tell them they have died
+        Message *r = new MOSDPing(monc->get_fsid(),
+                      curmap->get_epoch(),
+                      MOSDPing::YOU_DIED, // 发送对端 osd 已挂的消息
+                      m->ping_stamp,
+                      m->mono_ping_stamp,
+                      mnow,
+                      service.get_up_epoch(),
+                      cct->_conf->osd_heartbeat_min_size);
+        con->send_message(r);
       }
     }
     break;
@@ -5610,136 +5611,136 @@ void OSD::handle_osd_ping(MOSDPing *m)
           }
 
           if (unacknowledged == 0) {
-            // succeeded in getting all replies
-            dout(25) << "handle_osd_ping got all replies from osd." << from
-                     << " , erase pending ping(sent at " << m->ping_stamp << ")"
-                     << " and older pending ping(s)"
-                     << dendl;
+                // succeeded in getting all replies
+                dout(25) << "handle_osd_ping got all replies from osd." << from
+                         << " , erase pending ping(sent at " << m->ping_stamp << ")"
+                         << " and older pending ping(s)"
+                         << dendl;
 
 #define ROUND_S_TO_USEC(sec) (uint32_t)((sec) * 1000 * 1000 + 0.5)
-	    ++i->second.hb_average_count;
-	    uint32_t back_pingtime = ROUND_S_TO_USEC(i->second.last_rx_back - m->ping_stamp);
-	    i->second.hb_total_back += back_pingtime;
-	    if (back_pingtime < i->second.hb_min_back)
-	      i->second.hb_min_back = back_pingtime;
-	    if (back_pingtime > i->second.hb_max_back)
-	      i->second.hb_max_back = back_pingtime;
-	    uint32_t front_pingtime = ROUND_S_TO_USEC(i->second.last_rx_front - m->ping_stamp);
-	    i->second.hb_total_front += front_pingtime;
-	    if (front_pingtime < i->second.hb_min_front)
-	      i->second.hb_min_front = front_pingtime;
-	    if (front_pingtime > i->second.hb_max_front)
-	      i->second.hb_max_front = front_pingtime;
+            ++i->second.hb_average_count;
+            uint32_t back_pingtime = ROUND_S_TO_USEC(i->second.last_rx_back - m->ping_stamp);
+            i->second.hb_total_back += back_pingtime;
+            if (back_pingtime < i->second.hb_min_back)
+              i->second.hb_min_back = back_pingtime;
+            if (back_pingtime > i->second.hb_max_back)
+              i->second.hb_max_back = back_pingtime;
+            uint32_t front_pingtime = ROUND_S_TO_USEC(i->second.last_rx_front - m->ping_stamp);
+            i->second.hb_total_front += front_pingtime;
+            if (front_pingtime < i->second.hb_min_front)
+              i->second.hb_min_front = front_pingtime;
+            if (front_pingtime > i->second.hb_max_front)
+              i->second.hb_max_front = front_pingtime;
 
-	    ceph_assert(i->second.hb_interval_start != utime_t());
-	    if (i->second.hb_interval_start == utime_t())
-	      i->second.hb_interval_start = now;
-	    int64_t hb_avg_time_period = 60;
-	    if (cct->_conf.get_val<int64_t>("debug_heartbeat_testing_span")) {
-	      hb_avg_time_period = cct->_conf.get_val<int64_t>("debug_heartbeat_testing_span");
-	    }
-	    if (now - i->second.hb_interval_start >=  utime_t(hb_avg_time_period, 0)) {
-              uint32_t back_avg = i->second.hb_total_back / i->second.hb_average_count;
-              uint32_t back_min = i->second.hb_min_back;
-              uint32_t back_max = i->second.hb_max_back;
-              uint32_t front_avg = i->second.hb_total_front / i->second.hb_average_count;
-              uint32_t front_min = i->second.hb_min_front;
-              uint32_t front_max = i->second.hb_max_front;
+            ceph_assert(i->second.hb_interval_start != utime_t());
+            if (i->second.hb_interval_start == utime_t())
+              i->second.hb_interval_start = now;
+            int64_t hb_avg_time_period = 60;
+            if (cct->_conf.get_val<int64_t>("debug_heartbeat_testing_span")) {
+              hb_avg_time_period = cct->_conf.get_val<int64_t>("debug_heartbeat_testing_span");
+            }
+            if (now - i->second.hb_interval_start >=  utime_t(hb_avg_time_period, 0)) {
+                  uint32_t back_avg = i->second.hb_total_back / i->second.hb_average_count;
+                  uint32_t back_min = i->second.hb_min_back;
+                  uint32_t back_max = i->second.hb_max_back;
+                  uint32_t front_avg = i->second.hb_total_front / i->second.hb_average_count;
+                  uint32_t front_min = i->second.hb_min_front;
+                  uint32_t front_max = i->second.hb_max_front;
 
-	      // Reset for new interval
-	      i->second.hb_average_count = 0;
-	      i->second.hb_interval_start = now;
-	      i->second.hb_total_back = i->second.hb_max_back = 0;
-	      i->second.hb_min_back =  UINT_MAX;
-	      i->second.hb_total_front = i->second.hb_max_front = 0;
-	      i->second.hb_min_front = UINT_MAX;
+              // Reset for new interval
+              i->second.hb_average_count = 0;
+              i->second.hb_interval_start = now;
+              i->second.hb_total_back = i->second.hb_max_back = 0;
+              i->second.hb_min_back =  UINT_MAX;
+              i->second.hb_total_front = i->second.hb_max_front = 0;
+              i->second.hb_min_front = UINT_MAX;
 
-	      // Record per osd interace ping times
-	      // Based on osd_heartbeat_interval ignoring that it is randomly short than this interval
-	      if (i->second.hb_back_pingtime.size() == 0) {
-		ceph_assert(i->second.hb_front_pingtime.size() == 0);
-		for (unsigned k = 0 ; k < hb_vector_size; ++k) {
-	          i->second.hb_back_pingtime.push_back(back_avg);
-	          i->second.hb_back_min.push_back(back_min);
-	          i->second.hb_back_max.push_back(back_max);
-	          i->second.hb_front_pingtime.push_back(front_avg);
-	          i->second.hb_front_min.push_back(front_min);
-	          i->second.hb_front_max.push_back(front_max);
-	          ++i->second.hb_index;
-		}
-	      } else {
-	        int index = i->second.hb_index & (hb_vector_size - 1);
-	        i->second.hb_back_pingtime[index] = back_avg;
-	        i->second.hb_back_min[index] = back_min;
-	        i->second.hb_back_max[index] = back_max;
-	        i->second.hb_front_pingtime[index] = front_avg;
-	        i->second.hb_front_min[index] = front_min;
-	        i->second.hb_front_max[index] = front_max;
-	        ++i->second.hb_index;
-	      }
+              // Record per osd interace ping times
+              // Based on osd_heartbeat_interval ignoring that it is randomly short than this interval
+              if (i->second.hb_back_pingtime.size() == 0) {
+                ceph_assert(i->second.hb_front_pingtime.size() == 0);
+                for (unsigned k = 0 ; k < hb_vector_size; ++k) {
+                      i->second.hb_back_pingtime.push_back(back_avg);
+                      i->second.hb_back_min.push_back(back_min);
+                      i->second.hb_back_max.push_back(back_max);
+                      i->second.hb_front_pingtime.push_back(front_avg);
+                      i->second.hb_front_min.push_back(front_min);
+                      i->second.hb_front_max.push_back(front_max);
+                      ++i->second.hb_index;
+                }
+              } else {
+                int index = i->second.hb_index & (hb_vector_size - 1);
+                i->second.hb_back_pingtime[index] = back_avg;
+                i->second.hb_back_min[index] = back_min;
+                i->second.hb_back_max[index] = back_max;
+                i->second.hb_front_pingtime[index] = front_avg;
+                i->second.hb_front_min[index] = front_min;
+                i->second.hb_front_max[index] = front_max;
+                ++i->second.hb_index;
+              }
 
-	      {
-		std::lock_guard l(service.stat_lock);
-		service.osd_stat.hb_pingtime[from].last_update = now.sec();
-		service.osd_stat.hb_pingtime[from].back_last =  back_pingtime;
+              {
+                std::lock_guard l(service.stat_lock);
+                service.osd_stat.hb_pingtime[from].last_update = now.sec();
+                service.osd_stat.hb_pingtime[from].back_last =  back_pingtime;
 
-		uint32_t total = 0;
-		uint32_t min = UINT_MAX;
-		uint32_t max = 0;
-		uint32_t count = 0;
-		uint32_t which = 0;
-		uint32_t size = (uint32_t)i->second.hb_back_pingtime.size();
-		for (int32_t k = size - 1 ; k >= 0; --k) {
-		  ++count;
-		  int index = (i->second.hb_index + k) % size;
-		  total += i->second.hb_back_pingtime[index];
-		  if (i->second.hb_back_min[index] < min)
-		    min = i->second.hb_back_min[index];
-		  if (i->second.hb_back_max[index] > max)
-		    max = i->second.hb_back_max[index];
-		  if (count == 1 || count == 5 || count == 15) {
-		    service.osd_stat.hb_pingtime[from].back_pingtime[which] = total / count;
-		    service.osd_stat.hb_pingtime[from].back_min[which] = min;
-		    service.osd_stat.hb_pingtime[from].back_max[which] = max;
-		    which++;
-		    if (count == 15)
-		      break;
-		  }
-		}
+                uint32_t total = 0;
+                uint32_t min = UINT_MAX;
+                uint32_t max = 0;
+                uint32_t count = 0;
+                uint32_t which = 0;
+                uint32_t size = (uint32_t)i->second.hb_back_pingtime.size();
+                for (int32_t k = size - 1 ; k >= 0; --k) {
+                  ++count;
+                  int index = (i->second.hb_index + k) % size;
+                  total += i->second.hb_back_pingtime[index];
+                  if (i->second.hb_back_min[index] < min)
+                    min = i->second.hb_back_min[index];
+                  if (i->second.hb_back_max[index] > max)
+                    max = i->second.hb_back_max[index];
+                  if (count == 1 || count == 5 || count == 15) {
+                    service.osd_stat.hb_pingtime[from].back_pingtime[which] = total / count;
+                    service.osd_stat.hb_pingtime[from].back_min[which] = min;
+                    service.osd_stat.hb_pingtime[from].back_max[which] = max;
+                    which++;
+                    if (count == 15)
+                      break;
+                  }
+                }
 
                 if (i->second.con_front != NULL) {
-		  service.osd_stat.hb_pingtime[from].front_last = front_pingtime;
+                  service.osd_stat.hb_pingtime[from].front_last = front_pingtime;
 
-		  total = 0;
-		  min = UINT_MAX;
-		  max = 0;
-		  count = 0;
-		  which = 0;
-		  for (int32_t k = size - 1 ; k >= 0; --k) {
-		    ++count;
-		    int index = (i->second.hb_index + k) % size;
-		    total += i->second.hb_front_pingtime[index];
-		    if (i->second.hb_front_min[index] < min)
-		      min = i->second.hb_front_min[index];
-		    if (i->second.hb_front_max[index] > max)
-		      max = i->second.hb_front_max[index];
-		    if (count == 1 || count == 5 || count == 15) {
-		      service.osd_stat.hb_pingtime[from].front_pingtime[which] = total / count;
-		      service.osd_stat.hb_pingtime[from].front_min[which] = min;
-		      service.osd_stat.hb_pingtime[from].front_max[which] = max;
-		      which++;
-		      if (count == 15)
-		        break;
-		    }
-		  }
-		}
-	      }
-	    } else {
-		std::lock_guard l(service.stat_lock);
-		service.osd_stat.hb_pingtime[from].back_last =  back_pingtime;
+                  total = 0;
+                  min = UINT_MAX;
+                  max = 0;
+                  count = 0;
+                  which = 0;
+                  for (int32_t k = size - 1 ; k >= 0; --k) {
+                    ++count;
+                    int index = (i->second.hb_index + k) % size;
+                    total += i->second.hb_front_pingtime[index];
+                    if (i->second.hb_front_min[index] < min)
+                      min = i->second.hb_front_min[index];
+                    if (i->second.hb_front_max[index] > max)
+                      max = i->second.hb_front_max[index];
+                    if (count == 1 || count == 5 || count == 15) {
+                      service.osd_stat.hb_pingtime[from].front_pingtime[which] = total / count;
+                      service.osd_stat.hb_pingtime[from].front_min[which] = min;
+                      service.osd_stat.hb_pingtime[from].front_max[which] = max;
+                      which++;
+                      if (count == 15)
+                        break;
+                    }
+                  }
+                }
+              }
+            } else {
+                std::lock_guard l(service.stat_lock);
+                service.osd_stat.hb_pingtime[from].back_last =  back_pingtime;
                 if (i->second.con_front != NULL)
-		  service.osd_stat.hb_pingtime[from].front_last = front_pingtime;
-	    }
+                  service.osd_stat.hb_pingtime[from].front_last = front_pingtime;
+            }
             i->second.ping_history.erase(i->second.ping_history.begin(), ++acked);
           }
 
@@ -5772,20 +5773,20 @@ void OSD::handle_osd_ping(MOSDPing *m)
       }
 
       if (m->map_epoch &&
-	  curmap->is_up(from)) {
-	if (is_active()) {
-	  ConnectionRef cluster_con = service.get_con_osd_cluster(
-	    from, curmap->get_epoch());
-	  if (cluster_con) {
-	    service.maybe_share_map(cluster_con.get(), curmap, m->map_epoch);
-	  }
-	}
+          curmap->is_up(from)) {
+        if (is_active()) {
+          ConnectionRef cluster_con = service.get_con_osd_cluster(
+            from, curmap->get_epoch());
+          if (cluster_con) {
+            service.maybe_share_map(cluster_con.get(), curmap, m->map_epoch);
+          }
+        }
       }
 
       s->stamps->got_ping_reply(
-	mnow,
-	m->mono_send_stamp,
-	m->delta_ub);
+        mnow,
+        m->mono_send_stamp,
+        m->delta_ub);
       dout(20) << __func__ << " new stamps " << *s->stamps << dendl;
     }
     break;
@@ -5811,7 +5812,7 @@ void OSD::heartbeat_entry()
 
     double wait;
     if (cct->_conf.get_val<bool>("debug_disable_randomized_ping")) {
-      wait = (float)cct->_conf->osd_heartbeat_interval;
+      wait = (float)cct->_conf->osd_heartbeat_interval; // 默认值 6
     } else {
       wait = .5 + ((float)(rand() % 10)/10.0) * (float)cct->_conf->osd_heartbeat_interval;
     }
@@ -5857,17 +5858,17 @@ void OSD::heartbeat_check()
              << p->second.first_tx
              << " (oldest deadline " << oldest_deadline << ")"
              << dendl;
-	// fail
-	failure_queue[p->first] = p->second.first_tx;
+        // fail
+        failure_queue[p->first] = p->second.first_tx; // 插入队列，等待上报给 mon
       } else {
-	derr << "heartbeat_check: no reply from "
-             << p->second.con_front->get_peer_addr().get_sockaddr()
-	     << " osd." << p->first << " since back " << p->second.last_rx_back
-	     << " front " << p->second.last_rx_front
-	     << " (oldest deadline " << oldest_deadline << ")"
-             << dendl;
-	// fail
-	failure_queue[p->first] = std::min(p->second.last_rx_back, p->second.last_rx_front);
+        derr << "heartbeat_check: no reply from "
+                 << p->second.con_front->get_peer_addr().get_sockaddr()
+             << " osd." << p->first << " since back " << p->second.last_rx_back
+             << " front " << p->second.last_rx_front
+             << " (oldest deadline " << oldest_deadline << ")"
+                 << dendl;
+        // fail
+        failure_queue[p->first] = std::min(p->second.last_rx_back, p->second.last_rx_front);
       }
     }
   }
@@ -5880,7 +5881,7 @@ void OSD::heartbeat()
 
   // get CPU load avg
   double loadavgs[1];
-  int hb_interval = cct->_conf->osd_heartbeat_interval;
+  int hb_interval = cct->_conf->osd_heartbeat_interval; // 默认值 6
   int n_samples = 86400;
   if (hb_interval > 1) {
     n_samples /= hb_interval;
@@ -5888,7 +5889,7 @@ void OSD::heartbeat()
       n_samples = 1;
   }
 
-  if (getloadavg(loadavgs, 1) == 1) {
+  if (getloadavg(loadavgs, 1) == 1) { // 获取节点负载
     logger->set(l_osd_loadavg, 100 * loadavgs[0]);
     daily_loadavg = (daily_loadavg * (n_samples - 1) + loadavgs[0]) / n_samples;
     dout(30) << "heartbeat: daily_loadavg " << daily_loadavg << dendl;
@@ -5915,7 +5916,7 @@ void OSD::heartbeat()
   utime_t now = ceph_clock_now();
   auto mnow = service.get_mnow();
   utime_t deadline = now;
-  deadline += cct->_conf->osd_heartbeat_grace;
+  deadline += cct->_conf->osd_heartbeat_grace; // 默认值 20
 
   // send heartbeats
   for (map<int,HeartbeatInfo>::iterator i = heartbeat_peers.begin();
@@ -5943,7 +5944,7 @@ void OSD::heartbeat()
     i->second.con_back->send_message(
       new MOSDPing(monc->get_fsid(),
 		   service.get_osdmap_epoch(),
-		   MOSDPing::PING,
+		   MOSDPing::PING, // 向 back 地址发送 ping 消息
 		   now,
 		   mnow,
 		   mnow,
@@ -5955,7 +5956,7 @@ void OSD::heartbeat()
       i->second.con_front->send_message(
 	new MOSDPing(monc->get_fsid(),
 		     service.get_osdmap_epoch(),
-		     MOSDPing::PING,
+		     MOSDPing::PING, // 向 front 地址发送 ping 消息
 		     now,
 		     mnow,
 		     mnow,
@@ -5969,7 +5970,7 @@ void OSD::heartbeat()
   // hmm.. am i all alone?
   dout(30) << "heartbeat lonely?" << dendl;
   if (heartbeat_peers.empty()) {
-    if (now - last_mon_heartbeat > cct->_conf->osd_mon_heartbeat_interval && is_active()) {
+    if (now - last_mon_heartbeat > cct->_conf->osd_mon_heartbeat_interval && is_active()) { // 默认值 30
       last_mon_heartbeat = now;
       dout(10) << "i have no heartbeat peers; checking mon for new map" << dendl;
       osdmap_subscribe(get_osdmap_epoch() + 1, false);
@@ -6029,7 +6030,7 @@ void OSD::tick()
 
   utime_t now = ceph_clock_now();
   // throw out any obsolete markdown log
-  utime_t grace = utime_t(cct->_conf->osd_max_markdown_period, 0);
+  utime_t grace = utime_t(cct->_conf->osd_max_markdown_period, 0); // 默认值 600
   while (!osd_markdown_log.empty() &&
           osd_markdown_log.front() + grace < now)
     osd_markdown_log.pop_front();
@@ -6044,7 +6045,7 @@ void OSD::tick()
 
   if (is_waiting_for_healthy() || is_booting()) {
     std::lock_guard l(heartbeat_lock);
-    if (now - last_mon_heartbeat > cct->_conf->osd_mon_heartbeat_interval) {
+    if (now - last_mon_heartbeat > cct->_conf->osd_mon_heartbeat_interval) { // 默认值 30
       last_mon_heartbeat = now;
       dout(1) << __func__ << " checking mon for new map" << dendl;
       osdmap_subscribe(get_osdmap_epoch() + 1, false);
@@ -6100,7 +6101,7 @@ void OSD::tick_without_osd_lock()
   if (is_active() || is_waiting_for_healthy()) {
     {
       std::lock_guard l{heartbeat_lock};
-      heartbeat_check();
+      heartbeat_check(); // 心跳检查
     }
     map_lock.lock_shared();
     std::lock_guard l(mon_report_lock);
@@ -6108,10 +6109,10 @@ void OSD::tick_without_osd_lock()
     // mon report?
     utime_t now = ceph_clock_now();
     if (service.need_fullness_update() ||
-	now - last_mon_report > cct->_conf->osd_mon_report_interval) {
+        now - last_mon_report > cct->_conf->osd_mon_report_interval) {
       last_mon_report = now;
       send_full_update();
-      send_failures();
+      send_failures(); // 上报到 mon
     }
     map_lock.unlock_shared();
 
@@ -6140,17 +6141,17 @@ void OSD::tick_without_osd_lock()
       std::lock_guard l{min_last_epoch_clean_lock};
       const auto elapsed = now - last_sent_beacon;
       if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >
-        cct->_conf->osd_beacon_report_interval) {
+        cct->_conf->osd_beacon_report_interval) { // 默认值 300
         need_send_beacon = true;
       }
     }
     if (need_send_beacon) {
-      send_beacon(now);
+      send_beacon(now); // ? send beacon
     }
   }
 
   mgrc.update_daemon_health(get_health_metrics());
-  service.kick_recovery_queue();
+  service.kick_recovery_queue(); // ? kick recovery queue
   tick_timer_without_osd_lock.add_event_after(get_tick_interval(),
 					      new C_Tick_WithoutOSDLock(this));
 }
@@ -6939,15 +6940,15 @@ void OSD::send_failures()
     int osd = failure_queue.begin()->first;
     if (!failure_pending.count(osd)) {
       int failed_for = (int)(double)(now - failure_queue.begin()->second);
-      monc->send_mon_message(
-	new MOSDFailure(
-	  monc->get_fsid(),
-	  osd,
-	  osdmap->get_addrs(osd),
-	  failed_for,
-	  osdmap->get_epoch()));
-      failure_pending[osd] = make_pair(failure_queue.begin()->second,
-				       osdmap->get_addrs(osd));
+      monc->send_mon_message( // 发送 osd 心跳超时消息到 mon
+        new MOSDFailure(
+          monc->get_fsid(),
+          osd,
+          osdmap->get_addrs(osd),
+          failed_for,
+          osdmap->get_epoch()));
+          failure_pending[osd] = make_pair(failure_queue.begin()->second,
+                           osdmap->get_addrs(osd));
     }
     failure_queue.erase(osd);
   }
@@ -7126,7 +7127,7 @@ void OSD::probe_smart(const string& only_devid, ostream& ss)
   json_spirit::write(json_map, ss, json_spirit::pretty_print);
 }
 
-bool OSD::heartbeat_dispatch(Message *m)
+bool OSD::heartbeat_dispatch(Message *m) // 心跳消息的接收处理
 {
   dout(30) << "heartbeat_dispatch " << m << dendl;
   switch (m->get_type()) {
@@ -7268,48 +7269,48 @@ void OSD::ms_fast_dispatch(Message *m)
 
   // peering event?
   switch (m->get_type()) {
-  case CEPH_MSG_PING:
-    dout(10) << "ping from " << m->get_source() << dendl;
-    m->put();
-    return;
-  case MSG_OSD_FORCE_RECOVERY:
-    handle_fast_force_recovery(static_cast<MOSDForceRecovery*>(m));
-    return;
-  case MSG_OSD_SCRUB2:
-    handle_fast_scrub(static_cast<MOSDScrub2*>(m));
-    return;
+      case CEPH_MSG_PING:
+        dout(10) << "ping from " << m->get_source() << dendl;
+        m->put();
+        return;
+      case MSG_OSD_FORCE_RECOVERY:
+        handle_fast_force_recovery(static_cast<MOSDForceRecovery*>(m));
+        return;
+      case MSG_OSD_SCRUB2:
+        handle_fast_scrub(static_cast<MOSDScrub2*>(m));
+        return;
 
-  case MSG_OSD_PG_CREATE2:
-    return handle_fast_pg_create(static_cast<MOSDPGCreate2*>(m));
-  case MSG_OSD_PG_QUERY:
-    return handle_fast_pg_query(static_cast<MOSDPGQuery*>(m));
-  case MSG_OSD_PG_NOTIFY:
-    return handle_fast_pg_notify(static_cast<MOSDPGNotify*>(m));
-  case MSG_OSD_PG_INFO:
-    return handle_fast_pg_info(static_cast<MOSDPGInfo*>(m));
-  case MSG_OSD_PG_REMOVE:
-    return handle_fast_pg_remove(static_cast<MOSDPGRemove*>(m));
+      case MSG_OSD_PG_CREATE2:
+        return handle_fast_pg_create(static_cast<MOSDPGCreate2*>(m));
+      case MSG_OSD_PG_QUERY:
+        return handle_fast_pg_query(static_cast<MOSDPGQuery*>(m));
+      case MSG_OSD_PG_NOTIFY:
+        return handle_fast_pg_notify(static_cast<MOSDPGNotify*>(m));
+      case MSG_OSD_PG_INFO:
+        return handle_fast_pg_info(static_cast<MOSDPGInfo*>(m));
+      case MSG_OSD_PG_REMOVE:
+        return handle_fast_pg_remove(static_cast<MOSDPGRemove*>(m));
 
-    // these are single-pg messages that handle themselves
-  case MSG_OSD_PG_LOG:
-  case MSG_OSD_PG_TRIM:
-  case MSG_OSD_PG_NOTIFY2:
-  case MSG_OSD_PG_QUERY2:
-  case MSG_OSD_PG_INFO2:
-  case MSG_OSD_BACKFILL_RESERVE:
-  case MSG_OSD_RECOVERY_RESERVE:
-  case MSG_OSD_PG_LEASE:
-  case MSG_OSD_PG_LEASE_ACK:
-    {
-      MOSDPeeringOp *pm = static_cast<MOSDPeeringOp*>(m);
-      if (require_osd_peer(pm)) {
-	enqueue_peering_evt(
-	  pm->get_spg(),
-	  PGPeeringEventRef(pm->get_event()));
-      }
-      pm->put();
-      return;
-    }
+        // these are single-pg messages that handle themselves
+      case MSG_OSD_PG_LOG:
+      case MSG_OSD_PG_TRIM:
+      case MSG_OSD_PG_NOTIFY2:
+      case MSG_OSD_PG_QUERY2:
+      case MSG_OSD_PG_INFO2:
+      case MSG_OSD_BACKFILL_RESERVE:
+      case MSG_OSD_RECOVERY_RESERVE:
+      case MSG_OSD_PG_LEASE:
+      case MSG_OSD_PG_LEASE_ACK:
+        {
+          MOSDPeeringOp *pm = static_cast<MOSDPeeringOp*>(m);
+          if (require_osd_peer(pm)) {
+            enqueue_peering_evt(
+            pm->get_spg(),
+            PGPeeringEventRef(pm->get_event()));
+          }
+          pm->put();
+          return;
+        }
   }
 
   OpRequestRef op = op_tracker.create_request<OpRequest, Message*>(m);
@@ -10550,7 +10551,7 @@ MetricPayload OSD::get_perf_reports() {
 #undef dout_prefix
 #define dout_prefix *_dout << "osd." << osd->get_nodeid() << ":" << shard_id << "." << __func__ << " "
 
-void OSDShard::_attach_pg(OSDShardPGSlot *slot, PG *pg)
+void OSDShard::_attach_pg(OSDShardPGSlot *slot, PG *pg) // ? 增加 osd 对应的 pg
 {
   dout(10) << pg->pg_id << " " << pg << dendl;
   slot->pg = pg;

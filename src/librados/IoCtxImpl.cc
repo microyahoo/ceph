@@ -660,7 +660,7 @@ int librados::IoCtxImpl::operate(const object_t& oid, ::ObjectOperation *o,
     *o, snapc, ut,
     flags | extra_op_flags,
     oncommit, &ver);
-  objecter->op_submit(objecter_op);
+  objecter->op_submit(objecter_op); // 提交 op
 
   {
     std::unique_lock l{mylock};

@@ -2310,7 +2310,7 @@ void Objecter::_send_op_account(Op *op)
   }
 }
 
-void Objecter::_op_submit(Op *op, shunique_lock<ceph::shared_mutex>& sul, ceph_tid_t *ptid)
+void Objecter::_op_submit(Op *op, shunique_lock<ceph::shared_mutex>& sul, ceph_tid_t *ptid) // 提交 op
 {
   // rwlock is locked
 

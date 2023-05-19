@@ -1554,13 +1554,13 @@ public:
       switch (m->get_type()) {
       case CEPH_MSG_PING:
       case MSG_OSD_PING:
-	return true;
+        return true;
       default:
-	return false;
+        return false;
       }
     }
     void ms_fast_dispatch(Message *m) override {
-      osd->heartbeat_dispatch(m);
+      osd->heartbeat_dispatch(m); // 心跳消息处理函数
     }
     bool ms_dispatch(Message *m) override {
       return osd->heartbeat_dispatch(m);

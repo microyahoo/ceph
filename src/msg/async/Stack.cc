@@ -36,11 +36,11 @@
 
 std::function<void ()> NetworkStack::add_thread(Worker* w)
 {
-  return [this, w]() {
+  return [this, w]() { // worker thread function 
       char tp_name[16];
       sprintf(tp_name, "msgr-worker-%u", w->id);
       ceph_pthread_setname(pthread_self(), tp_name);
-      const unsigned EventMaxWaitUs = 30000000;
+      const unsigned EventMaxWaitUs = 30000000; // 默认 30s
       w->center.set_owner();
       ldout(cct, 10) << __func__ << " starting" << dendl;
       w->initialize();
@@ -85,9 +85,9 @@ std::shared_ptr<NetworkStack> NetworkStack::create(CephContext *c,
     return nullptr;
   }
   
-  unsigned num_workers = c->_conf->ms_async_op_threads;
+  unsigned num_workers = c->_conf->ms_async_op_threads; // 默认 3 个 worker，最多不超过 24 个 
   ceph_assert(num_workers > 0);
-  if (num_workers >= EventCenter::MAX_EVENTCENTER) {
+  if (num_workers >= EventCenter::MAX_EVENTCENTER) { // 24
     ldout(c, 0) << __func__ << " max thread limit is "
                   << EventCenter::MAX_EVENTCENTER << ", switching to this now. "
                   << "Higher thread values are unnecessary and currently unsupported."
@@ -96,8 +96,8 @@ std::shared_ptr<NetworkStack> NetworkStack::create(CephContext *c,
   }
   const int InitEventNumber = 5000;
   for (unsigned worker_id = 0; worker_id < num_workers; ++worker_id) {
-    Worker *w = stack->create_worker(c, worker_id);
-    int ret = w->center.init(InitEventNumber, worker_id, t);
+    Worker *w = stack->create_worker(c, worker_id); // 默认创建 3 个 worker
+    int ret = w->center.init(InitEventNumber, worker_id, t); // 初始化 worker 对应的 event center, 包括创建并初始化epoll driver，设置 receive 和 send pipe fd
     if (ret)
       throw std::system_error(-ret, std::generic_category());
     stack->workers.push_back(w);
@@ -145,7 +145,7 @@ Worker* NetworkStack::get_worker()
   // this will happen so rarely that there's no need for special case.
   for (Worker* worker : workers) {
     unsigned worker_load = worker->references.load();
-    if (worker_load < min_load) {
+    if (worker_load < min_load) { // 根据引用数选择最小的，而不是根据实际的负载来选择
       current_best = worker;
       min_load = worker_load;
     }

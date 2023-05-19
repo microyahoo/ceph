@@ -271,7 +271,7 @@ void ShardedThreadPool::shardedthreadpool_worker(uint32_t thread_index)
   std::stringstream ss;
   ss << name << " thread " << (void *)pthread_self();
   auto hb = cct->get_heartbeat_map()->add_worker(ss.str(), pthread_self());
-
+// ? 还没看，有关于心跳超时的内容
   while (!stop_threads) {
     if (pause_threads) {
       std::unique_lock ul(shardedpool_lock);

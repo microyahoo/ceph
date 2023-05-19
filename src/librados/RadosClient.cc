@@ -231,7 +231,7 @@ int librados::RadosClient::connect()
 
   common_init_finish(cct);
 
-  poolctx.start(cct->_conf.get_val<std::uint64_t>("librados_thread_count"));
+  poolctx.start(cct->_conf.get_val<std::uint64_t>("librados_thread_count")); // 默认值 2
 
   // get monmap
   err = monclient.build_initial_monmap();

@@ -23,10 +23,10 @@
 #include "Event.h"
 
 class EpollDriver : public EventDriver {
-  int epfd;
+  int epfd; // epoll instance id
   struct epoll_event *events;
   CephContext *cct;
-  int nevent;
+  int nevent; // 默认 5000
 
  public:
   explicit EpollDriver(CephContext *c): epfd(-1), events(NULL), cct(c), nevent(0) {}

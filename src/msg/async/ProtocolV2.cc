@@ -111,7 +111,7 @@ void ProtocolV2::connect() {
 
 void ProtocolV2::accept() {
   ldout(cct, 1) << __func__ << dendl;
-  state = START_ACCEPT;
+  state = START_ACCEPT; // 将 msgr 协议状态设置为 START_ACCEPT
 }
 
 bool ProtocolV2::is_connected() { return can_write; }
@@ -449,12 +449,12 @@ void ProtocolV2::send_message(Message *m) {
     m->queue_start = ceph::mono_clock::now();
     m->trace.event("async enqueueing message");
     out_queue[m->get_priority()].emplace_back(
-      out_queue_entry_t{is_prepared, m});
+      out_queue_entry_t{is_prepared, m}); // 将要发送的消息加入队列
     ldout(cct, 15) << __func__ << " inline write is denied, reschedule m=" << m
                    << dendl;
     if (((!replacing && can_write) || state == STANDBY) && !write_in_progress) {
       write_in_progress = true;
-      connection->center->dispatch_event_external(connection->write_handler);
+      connection->center->dispatch_event_external(connection->write_handler); // 触发外部事件，从而去执行写回调, 实际调用的是 connection.handle_write -> ProtocolV2::write_event
     }
   }
 }
@@ -476,7 +476,7 @@ void ProtocolV2::read_event() {
       run_continuation(CONTINUATION(start_client_banner_exchange));
       break;
     case START_ACCEPT:
-      run_continuation(CONTINUATION(start_server_banner_exchange));
+      run_continuation(CONTINUATION(start_server_banner_exchange)); // 交换 server banner
       break;
     case READY:
       run_continuation(CONTINUATION(read_frame));
@@ -532,7 +532,7 @@ ssize_t ProtocolV2::write_message(Message *m, bool more) {
                            footer.flags,      header.compat_version,
                            header.reserved};
 
-  auto message = MessageFrame::Encode(
+  auto message = MessageFrame::Encode( // 将消息编码为消息帧
 			     header2,
 			     m->get_payload(),
 			     m->get_middle(),
@@ -638,7 +638,7 @@ void ProtocolV2::write_event() {
 
     auto start = ceph::mono_clock::now();
     bool more;
-    do {
+    do { // 遍历 out message queue
       const auto out_entry = _get_next_outgoing();
       if (!out_entry.m) {
         break;
@@ -663,7 +663,7 @@ void ProtocolV2::write_event() {
 				 out_entry.m->queue_start);
       }
 
-      r = write_message(out_entry.m, more);
+      r = write_message(out_entry.m, more); // 将消息发送出去
 
       connection->write_lock.lock();
       if (r == 0) {
@@ -1138,7 +1138,7 @@ CtPtr ProtocolV2::handle_read_frame_dispatch() {
     case Tag::WAIT:
       return handle_frame_payload();
     case Tag::MESSAGE:
-      return handle_message();
+      return handle_message(); // 消息处理
     default: {
       lderr(cct) << __func__
                  << " received unknown tag=" << static_cast<uint32_t>(next_tag)
@@ -1271,7 +1271,7 @@ CtPtr ProtocolV2::ready() {
 
   {
     std::lock_guard<std::mutex> l(connection->write_lock);
-    can_write = true;
+    can_write = true; // 设置为可写
     if (!out_queue.empty()) {
       connection->center->dispatch_event_external(connection->write_handler);
     }
@@ -1279,7 +1279,7 @@ CtPtr ProtocolV2::ready() {
 
   connection->maybe_start_delay_thread();
 
-  state = READY;
+  state = READY; // 将 msgr 协议状态设置为 ready
   ldout(cct, 1) << __func__ << " entity=" << peer_name << " client_cookie="
                 << std::hex << client_cookie << " server_cookie="
                 << server_cookie << std::dec << " in_seq=" << in_seq
@@ -1366,7 +1366,7 @@ CtPtr ProtocolV2::handle_message() {
   ceph_msg_footer footer{init_le32(0), init_le32(0),
 	                 init_le32(0), init_le64(0), current_header.flags};
 
-  Message *message = decode_message(cct, 0, header, footer,
+  Message *message = decode_message(cct, 0, header, footer, // 将消息帧解析为 Message
       msg_frame.front(),
       msg_frame.middle(),
       msg_frame.data(),
@@ -1475,7 +1475,7 @@ CtPtr ProtocolV2::handle_message() {
     connection->delay_state->queue(delay_period, message);
   } else if (messenger->ms_can_fast_dispatch(message)) {
     connection->lock.unlock();
-    connection->dispatch_queue->fast_dispatch(message);
+    connection->dispatch_queue->fast_dispatch(message); // 能够 fast dispatch
     connection->recv_start_time = ceph::mono_clock::now();
     connection->logger->tinc(l_msgr_running_fast_dispatch_time,
                              connection->recv_start_time - fast_dispatch_time);
@@ -1495,7 +1495,7 @@ CtPtr ProtocolV2::handle_message() {
 
  out:
   if (need_dispatch_writer && connection->is_connected()) {
-    connection->center->dispatch_event_external(connection->write_handler);
+    connection->center->dispatch_event_external(connection->write_handler); // 不能 fast dispatch 的加入 dispatch queue
   }
 
   return CONTINUE(read_frame);

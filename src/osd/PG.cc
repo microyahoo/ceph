@@ -793,7 +793,7 @@ void PG::update_heartbeat_peers(set<int> new_peers)
   heartbeat_peer_lock.unlock();
 
   if (need_update)
-    osd->need_heartbeat_peer_update();
+    osd->need_heartbeat_peer_update(); // 更新 osd 心跳 peers
 }
 
 

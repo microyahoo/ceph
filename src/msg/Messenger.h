@@ -396,7 +396,7 @@ public:
     if (d->ms_can_fast_dispatch_any())
       fast_dispatchers.push_front(d);
     if (first)
-      ready();
+      ready(); // AsyncMesenger ready
   }
   /**
    * Add a new Dispatcher to the end of the list. If you add
@@ -517,7 +517,7 @@ public:
     Message *m,
     int type,
     const entity_addrvec_t& addr) = 0;
-  int send_to_mon(
+  int send_to_mon( // 发送消息到 mon
     Message *m, const entity_addrvec_t& addrs) {
     return send_to(m, CEPH_ENTITY_TYPE_MON, addrs);
   }
@@ -544,7 +544,7 @@ public:
   virtual ConnectionRef connect_to(
     int type, const entity_addrvec_t& dest,
     bool anon=false, bool not_local_dest=false) = 0;
-  ConnectionRef connect_to_mon(const entity_addrvec_t& dest,
+  ConnectionRef connect_to_mon(const entity_addrvec_t& dest, // 连接 mon
       bool anon=false, bool not_local_dest=false) {
 	return connect_to(CEPH_ENTITY_TYPE_MON, dest, anon, not_local_dest);
   }
@@ -667,7 +667,7 @@ public:
   bool ms_can_fast_dispatch(const ceph::cref_t<Message>& m) {
     for (const auto &dispatcher : fast_dispatchers) {
       if (dispatcher->ms_can_fast_dispatch2(m))
-	return true;
+        return true;
     }
     return false;
   }
@@ -682,8 +682,8 @@ public:
     m->set_dispatch_stamp(ceph_clock_now());
     for (const auto &dispatcher : fast_dispatchers) {
       if (dispatcher->ms_can_fast_dispatch2(m)) {
-	dispatcher->ms_fast_dispatch2(m);
-	return;
+        dispatcher->ms_fast_dispatch2(m);
+        return;
       }
     }
     ceph_abort();
@@ -710,7 +710,7 @@ public:
     m->set_dispatch_stamp(ceph_clock_now());
     for (const auto &dispatcher : dispatchers) {
       if (dispatcher->ms_dispatch2(m))
-	return;
+        return;
     }
     lsubdout(cct, ms, 0) << "ms_deliver_dispatch: unhandled message " << m << " " << *m << " from "
 			 << m->get_source_inst() << dendl;

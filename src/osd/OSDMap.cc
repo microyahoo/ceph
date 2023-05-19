@@ -2834,8 +2834,8 @@ void OSDMap::_pg_to_up_acting_osds(
   ps_t pps;
   _get_temp_osds(*pool, pg, &_acting, &_acting_primary);
   if (_acting.empty() || up || up_primary) {
-    _pg_to_raw_osds(*pool, pg, &raw, &pps);
-    _apply_upmap(*pool, pg, &raw);
+    _pg_to_raw_osds(*pool, pg, &raw, &pps); // raw 为选择的 osds
+    _apply_upmap(*pool, pg, &raw); // ? unmap
     _raw_to_up_osds(*pool, raw, &_up);
     _up_primary = _pick_primary(_up);
     _apply_primary_affinity(pps, *pool, &_up, &_up_primary);

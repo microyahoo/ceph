@@ -156,7 +156,7 @@ int MonClient::get_monmap_and_config()
       return r;
     }
     r = authenticate(
-      cct->_conf.get_val<std::chrono::seconds>("client_mount_timeout").count());
+      cct->_conf.get_val<std::chrono::seconds>("client_mount_timeout").count()); // 默认值 300
     if (r < 0) {
       break;
     }
@@ -803,7 +803,7 @@ void MonClient::_add_conns()
     }
   }
   ldout(cct, 10) << __func__ << " ranks=" << ranks << dendl;
-  unsigned n = cct->_conf->mon_client_hunt_parallel;
+  unsigned n = cct->_conf->mon_client_hunt_parallel; // default 3
   if (n == 0 || n > ranks.size()) {
     n = ranks.size();
   }
@@ -1015,7 +1015,7 @@ void MonClient::_renew_subs()
     auto m = ceph::make_message<MMonSubscribe>();
     m->what = sub.get_subs();
     m->hostname = ceph_get_short_hostname();
-    _send_mon_message(std::move(m));
+    _send_mon_message(std::move(m)); // 发送 mon 消息
     sub.renewed();
   }
 }

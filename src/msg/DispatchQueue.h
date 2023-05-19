@@ -106,7 +106,7 @@ class DispatchQueue {
   ceph::mutex local_delivery_lock;
   ceph::condition_variable local_delivery_cond;
   bool stop_local_delivery;
-  std::queue<std::pair<ceph::ref_t<Message>, int>> local_messages;
+  std::queue<std::pair<ceph::ref_t<Message>, int>> local_messages; // message -> priority
   class LocalDeliveryThread : public Thread {
     DispatchQueue *dq;
   public:
@@ -204,7 +204,7 @@ class DispatchQueue {
   }
   void fast_preprocess(const ceph::ref_t<Message>& m);
   void enqueue(const ceph::ref_t<Message>& m, int priority, uint64_t id);
-  void enqueue(Message* m, int priority, uint64_t id) {
+  void enqueue(Message* m, int priority, uint64_t id) { // id is conn_id
     return enqueue(ceph::ref_t<Message>(m, false), priority, id); /* consume ref */
   }
   void discard_queue(uint64_t id);
