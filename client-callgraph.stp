@@ -1,0 +1,56 @@
+#! /usr/bin/env stap
+
+function trace(entry_p, extra) {
+  printf("%s%s%s %s\n",
+         thread_indent (entry_p),
+         (entry_p>0?"->":"<-"),
+         ppfunc (),
+         extra)
+}
+
+probe process("/root/go/src/ceph/build/lib/librados.so*").function("connect*").call {
+    trace(2, $$parms)
+}
+
+probe process("/root/go/src/ceph/build/lib/librados.so*").function("connect*").return{
+    trace(-2, $$return)
+}
+
+probe process("/root/go/src/ceph/build/lib/librados.so*").function("set_messenger").call {
+    trace(2, $$parms)
+}
+
+probe process("/root/go/src/ceph/build/lib/librados.so*").function("set_messenger*").return{
+    trace(-2, $$return)
+}
+probe process("/root/go/src/ceph/build/lib/librados.so*").function("add_dispatch*").call {
+    trace(2, $$parms)
+}
+
+probe process("/root/go/src/ceph/build/lib/librados.so*").function("add_dispatch*").return{
+    trace(-2, $$return)
+}
+
+probe process("/root/go/src/ceph/build/lib/libceph-common.so*").function("AsyncConnection::*").call {
+   trace(2, $$parms)
+}
+
+probe process("/root/go/src/ceph/build/lib/libceph-common.so*").function("AsyncConnection::*").return{
+   trace(-2, $$return)
+}
+
+probe process("/root/go/src/ceph/build/lib/libceph-common.so*").function("ProtocolV2::*").call {
+   trace(2, $$parms)
+}
+
+probe process("/root/go/src/ceph/build/lib/libceph-common.so*").function("ProtocolV2::*").return{
+   trace(-2, $$return)
+}
+
+#probe process("/root/go/src/ceph/build/lib/libceph-common.so*").function("ProtocolV2::send_message").call {
+   #trace(2, $$parms)
+#}
+#
+#probe process("/root/go/src/ceph/build/lib/libceph-common.so*").function("ProtocolV2::send_message").return{
+   #trace(-2, $$return)
+#}
