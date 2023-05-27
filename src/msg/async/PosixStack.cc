@@ -58,7 +58,7 @@ class PosixConnectedSocketImpl final : public ConnectedSocketImpl {
       return 1;
     } else if (r < 0) {
       return r;
-    } else { // r > 0
+    } else { // r == 1, 即错误码 (EINPROGRESS, EALREADY, EAGAIN)
       return 0;
     }
   }

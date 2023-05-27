@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+/MSG_/ -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -153,7 +153,7 @@ MonCommand mon_commands[] = {
 #undef COMMAND
 #undef COMMAND_WITH_FLAG
 
-Monitor::Monitor(CephContext* cct_, string nm, MonitorDBStore *s,
+Monitor::Monitor(CephContext* cct_, string nm, MonitorDBStore *s, // ? db store
 		 Messenger *m, Messenger *mgr_m, MonMap *map) :
   Dispatcher(cct_),
   AuthServer(cct_),
@@ -4070,7 +4070,7 @@ void Monitor::forward_request_leader(MonOpRequestRef op)
     } else if (req->get_source().is_mon()) {
       forward->entity_name.set_type(CEPH_ENTITY_TYPE_MON);
     }
-    send_mon_message(forward, mon);
+    send_mon_message(forward, mon); // 将 message 转发到 leader
     op->mark_forwarded();
     ceph_assert(op->get_req()->get_type() != 0);
   } else {
@@ -4548,7 +4548,7 @@ void Monitor::dispatch_op(MonOpRequestRef op)
   // and "tell" (which reconnects but doesn't attempt to preserve
   // its global_id and stays in NEW_NOT_EXPOSED, retrying until
   // ->send_attempts reaches 0)
-  if (cct->_conf->auth_expose_insecure_global_id_reclaim &&
+  if (cct->_conf->auth_expose_insecure_global_id_reclaim && // 默认值 true
       s->global_id_status == global_id_status_t::NEW_NOT_EXPOSED &&
       op->get_req()->get_type() != CEPH_MSG_MON_GET_MAP) {
     dout(5) << __func__ << " " << op->get_req()->get_source_inst()
@@ -4599,7 +4599,7 @@ void Monitor::dispatch_op(MonOpRequestRef op)
     case MSG_REMOVE_SNAPS:
     case MSG_MON_GET_PURGED_SNAPS:
     case MSG_OSD_PG_READY_TO_MERGE:
-      paxos_service[PAXOS_OSDMAP]->dispatch(op);
+      paxos_service[PAXOS_OSDMAP]->dispatch(op); // 实际实现是由 OsdMonitor 进行处理的
       return;
 
     // MDSs

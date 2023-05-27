@@ -620,7 +620,7 @@ int main(int argc, const char **argv)
   init_async_signal_handler();
   register_async_signal_handler(SIGHUP, sighup_handler);
 
-  MonitorDBStore *store = new MonitorDBStore(g_conf()->mon_data);
+  MonitorDBStore *store = new MonitorDBStore(g_conf()->mon_data); // ? db store
 
   // make sure we aren't upgrading too fast
   {

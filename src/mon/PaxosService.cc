@@ -76,11 +76,11 @@ bool PaxosService::dispatch(MonOpRequestRef op)
   }
 
   // preprocess
-  if (preprocess_query(op)) 
+  if (preprocess_query(op))
     return true;  // easy!
 
   // leader?
-  if (!mon.is_leader()) {
+  if (!mon.is_leader()) { // 如果 mon 不是leader，则将请求转发到 leader 进行处理
     mon.forward_request_leader(op);
     return true;
   }
@@ -241,11 +241,11 @@ void PaxosService::propose_pending()
     void finish(int r) override {
       ps->proposing = false;
       if (r >= 0)
-	ps->_active();
+        ps->_active();
       else if (r == -ECANCELED || r == -EAGAIN)
-	return;
+        return;
       else
-	ceph_abort_msg("bad return value for C_Committed");
+        ceph_abort_msg("bad return value for C_Committed");
     }
   };
   paxos.queue_pending_finisher(new C_Committed(this));

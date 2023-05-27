@@ -281,10 +281,10 @@ void ShardedThreadPool::shardedthreadpool_worker(uint32_t thread_index)
        cct->get_heartbeat_map()->reset_timeout(
 	        hb,
 	        wq->timeout_interval,
-		wq->suicide_interval);
+            wq->suicide_interval);
        shardedpool_cond.wait_for(
-	 ul,
-	 std::chrono::seconds(cct->_conf->threadpool_empty_queue_max_wait));
+         ul,
+         std::chrono::seconds(cct->_conf->threadpool_empty_queue_max_wait));
       }
       --num_paused;
     }
@@ -294,13 +294,13 @@ void ShardedThreadPool::shardedthreadpool_worker(uint32_t thread_index)
         ++num_drained;
         wait_cond.notify_all();
         while (drain_threads) {
-	  cct->get_heartbeat_map()->reset_timeout(
-	    hb,
-	    wq->timeout_interval,
-	    wq->suicide_interval);
+          cct->get_heartbeat_map()->reset_timeout(
+            hb,
+            wq->timeout_interval,
+            wq->suicide_interval);
           shardedpool_cond.wait_for(
-	    ul,
-	    std::chrono::seconds(cct->_conf->threadpool_empty_queue_max_wait));
+            ul,
+            std::chrono::seconds(cct->_conf->threadpool_empty_queue_max_wait));
         }
         --num_drained;
       }

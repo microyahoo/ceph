@@ -2515,15 +2515,15 @@ int OSDMap::map_to_pg(
   pg_t *pg) const
 {
   // calculate ps (placement seed)
-  const pg_pool_t *pool = get_pg_pool(poolid);
+  const pg_pool_t *pool = get_pg_pool(poolid); // 根据poolid 获取pool实体 
   if (!pool)
     return -ENOENT;
   ps_t ps;
-  if (!key.empty())
+  if (!key.empty()) // 判断客户端写入的时候是否指定了key
     ps = pool->hash_key(key, nspace);
   else
-    ps = pool->hash_key(name, nspace);
-  *pg = pg_t(ps, poolid);
+    ps = pool->hash_key(name, nspace); // 没有指定就用文件名作为 key, 然后计算 hash 值
+  *pg = pg_t(ps, poolid); // 根据计算得到的 hash 以及 poolid 组装成 pg 实体
   return 0;
 }
 
@@ -2537,7 +2537,7 @@ int OSDMap::object_locator_to_pg(
     pg = pg_t(loc.hash, loc.get_pool());
     return 0;
   }
-  return map_to_pg(loc.get_pool(), oid.name, loc.key, loc.nspace, &pg);
+  return map_to_pg(loc.get_pool(), oid.name, loc.key, loc.nspace, &pg); // 计算到 pg 的映射
 }
 
 ceph_object_layout OSDMap::make_object_layout(
@@ -2656,7 +2656,7 @@ void OSDMap::_apply_upmap(const pg_pool_t& pi, pg_t raw_pg, vector<int> *raw) co
 void OSDMap::_raw_to_up_osds(const pg_pool_t& pool, const vector<int>& raw,
                              vector<int> *up) const
 {
-  if (pool.can_shift_osds()) {
+  if (pool.can_shift_osds()) { // 副本池
     // shift left
     up->clear();
     up->reserve(raw.size());
@@ -2665,7 +2665,7 @@ void OSDMap::_raw_to_up_osds(const pg_pool_t& pool, const vector<int>& raw,
 	continue;
       up->push_back(raw[i]);
     }
-  } else {
+  } else { // EC 池
     // set down/dne devices to NONE
     up->resize(raw.size());
     for (int i = raw.size() - 1; i >= 0; --i) {
@@ -2836,8 +2836,8 @@ void OSDMap::_pg_to_up_acting_osds(
   if (_acting.empty() || up || up_primary) {
     _pg_to_raw_osds(*pool, pg, &raw, &pps); // raw 为选择的 osds
     _apply_upmap(*pool, pg, &raw); // ? unmap
-    _raw_to_up_osds(*pool, raw, &_up);
-    _up_primary = _pick_primary(_up);
+    _raw_to_up_osds(*pool, raw, &_up); // 获取 up osds
+    _up_primary = _pick_primary(_up); // 获取 primary osd
     _apply_primary_affinity(pps, *pool, &_up, &_up_primary);
     if (_acting.empty()) {
       _acting = _up;

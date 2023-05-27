@@ -1793,7 +1793,7 @@ int Objecter::_get_session(int osd, OSDSession **session,
   }
   auto s = new OSDSession(cct, osd);
   osd_sessions[osd] = s;
-  s->con = messenger->connect_to_osd(osdmap->get_addrs(osd));
+  s->con = messenger->connect_to_osd(osdmap->get_addrs(osd)); // 连接到目标 osd
   s->con->set_priv(RefCountedPtr{s});
   logger->inc(l_osdc_osd_session_open);
   logger->set(l_osdc_osd_sessions, osd_sessions.size());
@@ -2320,11 +2320,11 @@ void Objecter::_op_submit(Op *op, shunique_lock<ceph::shared_mutex>& sul, ceph_t
   ceph_assert(op->session == NULL);
   OSDSession *s = NULL;
 
-  bool check_for_latest_map = _calc_target(&op->target, nullptr)
+  bool check_for_latest_map = _calc_target(&op->target, nullptr) // 计算 target
     == RECALC_OP_TARGET_POOL_DNE;
 
   // Try to get a session, including a retry if we need to take write lock
-  int r = _get_session(op->target.osd, &s, sul);
+  int r = _get_session(op->target.osd, &s, sul); // 获取 osd session，如果没有，则创建新的连接
   if (r == -EAGAIN ||
       (check_for_latest_map && sul.owns_lock_shared()) ||
       cct->_conf->objecter_debug_inject_relock_delay) {
@@ -2384,7 +2384,7 @@ void Objecter::_op_submit(Op *op, shunique_lock<ceph::shared_mutex>& sul, ceph_t
   _session_op_assign(s, op);
 
   if (need_send) {
-    _send_op(op);
+    _send_op(op); // 发送 op
   }
 
   // Last chance to touch Op here, after giving up session lock it can
@@ -2706,7 +2706,7 @@ int Objecter::_calc_target(op_target_t *t, Connection *con, bool any_change)
 		<< (is_write ? " is_write" : "")
 		<< dendl;
 
-  const pg_pool_t *pi = osdmap->get_pg_pool(t->base_oloc.pool);
+  const pg_pool_t *pi = osdmap->get_pg_pool(t->base_oloc.pool); // 获取 pool
   if (!pi) {
     t->osd = -1;
     return RECALC_OP_TARGET_POOL_DNE;
@@ -2746,7 +2746,7 @@ int Objecter::_calc_target(op_target_t *t, Connection *con, bool any_change)
     ceph_assert(t->base_oloc.pool == (int64_t)t->base_pgid.pool());
     pgid = t->base_pgid;
   } else {
-    int ret = osdmap->object_locator_to_pg(t->target_oid, t->target_oloc,
+    int ret = osdmap->object_locator_to_pg(t->target_oid, t->target_oloc, // 获取 pg 实体，完成第一次映射
 					   pgid);
     if (ret == -ENOENT) {
       t->osd = -1;
@@ -2761,12 +2761,12 @@ int Objecter::_calc_target(op_target_t *t, Connection *con, bool any_change)
 
   int size = pi->size;
   int min_size = pi->min_size;
-  unsigned pg_num = pi->get_pg_num();
+  unsigned pg_num = pi->get_pg_num(); // 获取 pool 的 pg_num
   unsigned pg_num_mask = pi->get_pg_num_mask();
   unsigned pg_num_pending = pi->get_pg_num_pending();
   int up_primary, acting_primary;
   vector<int> up, acting;
-  ps_t actual_ps = ceph_stable_mod(pgid.ps(), pg_num, pg_num_mask);
+  ps_t actual_ps = ceph_stable_mod(pgid.ps(), pg_num, pg_num_mask); // 根据第一次的 hash 值计算实际的 hash
   pg_t actual_pgid(actual_ps, pgid.pool());
   pg_mapping_t pg_mapping;
   pg_mapping.epoch = osdmap->get_epoch();
@@ -2776,7 +2776,7 @@ int Objecter::_calc_target(op_target_t *t, Connection *con, bool any_change)
     acting = pg_mapping.acting;
     acting_primary = pg_mapping.acting_primary;
   } else {
-    osdmap->pg_to_up_acting_osds(actual_pgid, &up, &up_primary,
+    osdmap->pg_to_up_acting_osds(actual_pgid, &up, &up_primary, // 根据 pg 计算 osd up set 和 acting set
                                  &acting, &acting_primary);
     pg_mapping_t pg_mapping(osdmap->get_epoch(),
                             up, up_primary, acting, acting_primary);
@@ -2881,35 +2881,35 @@ int Objecter::_calc_target(op_target_t *t, Connection *con, bool any_change)
       int osd;
       ceph_assert(is_read && acting[0] == acting_primary);
       if (t->flags & CEPH_OSD_FLAG_BALANCE_READS) {
-	int p = rand() % acting.size();
-	if (p)
-	  t->used_replica = true;
-	osd = acting[p];
-	ldout(cct, 10) << " chose random osd." << osd << " of " << acting
+        int p = rand() % acting.size();
+        if (p)
+          t->used_replica = true;
+        osd = acting[p];
+        ldout(cct, 10) << " chose random osd." << osd << " of " << acting
 		       << dendl;
       } else {
-	// look for a local replica.  prefer the primary if the
-	// distance is the same.
-	int best = -1;
-	int best_locality = 0;
-	for (unsigned i = 0; i < acting.size(); ++i) {
-	  int locality = osdmap->crush->get_common_ancestor_distance(
-		 cct, acting[i], crush_location);
-	  ldout(cct, 20) << __func__ << " localize: rank " << i
-			 << " osd." << acting[i]
-			 << " locality " << locality << dendl;
-	  if (i == 0 ||
-	      (locality >= 0 && best_locality >= 0 &&
-	       locality < best_locality) ||
-	      (best_locality < 0 && locality >= 0)) {
-	    best = i;
-	    best_locality = locality;
-	    if (i)
-	      t->used_replica = true;
-	  }
-	}
-	ceph_assert(best >= 0);
-	osd = acting[best];
+        // look for a local replica.  prefer the primary if the
+        // distance is the same.
+        int best = -1;
+        int best_locality = 0;
+        for (unsigned i = 0; i < acting.size(); ++i) {
+          int locality = osdmap->crush->get_common_ancestor_distance(
+             cct, acting[i], crush_location);
+          ldout(cct, 20) << __func__ << " localize: rank " << i
+                 << " osd." << acting[i]
+                 << " locality " << locality << dendl;
+          if (i == 0 ||
+              (locality >= 0 && best_locality >= 0 &&
+               locality < best_locality) ||
+              (best_locality < 0 && locality >= 0)) {
+            best = i;
+            best_locality = locality;
+            if (i)
+              t->used_replica = true;
+          }
+        }
+        ceph_assert(best >= 0);
+        osd = acting[best];
       }
       t->osd = osd;
     } else {
@@ -3134,7 +3134,7 @@ Objecter::MOSDOp *Objecter::_prepare_osd_op(Op *op)
   m->set_snap_seq(op->snapc.seq);
   m->set_snaps(op->snapc.snaps);
 
-  m->ops = op->ops;
+  m->ops = op->ops; // ? ops
   m->set_mtime(op->mtime);
   m->set_retry_attempt(op->attempts++);
 
@@ -3231,7 +3231,7 @@ void Objecter::_send_op(Op *op)
   if (op->trace.valid()) {
     m->trace.init("op msg", nullptr, &op->trace);
   }
-  op->session->con->send_message(m);
+  op->session->con->send_message(m); // 发送消息
 }
 
 int Objecter::calc_op_budget(const bc::small_vector_base<OSDOp>& ops)
@@ -4923,7 +4923,7 @@ Objecter::Objecter(CephContext *cct,
 		   boost::asio::io_context& service) :
   Dispatcher(cct), messenger(m), monc(mc), service(service)
 {
-  mon_timeout = cct->_conf.get_val<std::chrono::seconds>("rados_mon_op_timeout");
+  mon_timeout = cct->_conf.get_val<std::chrono::seconds>("rados_mon_op_timeout"); // 默认值 0
   osd_timeout = cct->_conf.get_val<std::chrono::seconds>("rados_osd_op_timeout");
 }
 

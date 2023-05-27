@@ -404,11 +404,11 @@ void AsyncConnection::process() { // read_handler
       }
 
       center->create_file_event(cs.fd(), EVENT_READABLE, read_handler);
-      state = STATE_CONNECTING_RE;
+      state = STATE_CONNECTING_RE; // NOTE: 这里没有 break，会继续往下执行
     }
     case STATE_CONNECTING_RE: {
-      ssize_t r = cs.is_connected();
-      if (r < 0) {
+      ssize_t r = cs.is_connected(); // 正常 connected 之后(包括重连)，返回值为 1
+      if (r < 0) { // 连接失败
         ldout(async_msgr->cct, 1) << __func__ << " reconnect failed to "
                                   << target_addr << dendl;
         if (r == -ECONNREFUSED) {
@@ -418,7 +418,7 @@ void AsyncConnection::process() { // read_handler
         }
         protocol->fault();
         return;
-      } else if (r == 0) {
+      } else if (r == 0) { // 连接中，对应的错误码为 (EINPROGRESS, EALREADY, EAGAIN)
         ldout(async_msgr->cct, 10)
             << __func__ << " nonblock connect inprogress" << dendl;
         if (async_msgr->get_stack()->nonblock_connect_need_writable_event()) {
@@ -429,7 +429,7 @@ void AsyncConnection::process() { // read_handler
                ceph::mono_clock::now() - recv_start_time);
         return;
       }
-
+      // 连接成功
       center->delete_file_event(cs.fd(), EVENT_WRITABLE);
       ldout(async_msgr->cct, 10)
           << __func__ << " connect successfully, ready to send banner" << dendl;

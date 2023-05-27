@@ -452,7 +452,7 @@ OSDMonitor::OSDMonitor(
   const string& service_name)
  : PaxosService(mn, p, service_name),
    cct(cct),
-   inc_osd_cache(g_conf()->mon_osd_cache_size),
+   inc_osd_cache(g_conf()->mon_osd_cache_size), // 默认值 500
    full_osd_cache(g_conf()->mon_osd_cache_size),
    has_osdmap_manifest(false),
    mapper(mn.cct, &mn.cpu_tp)
@@ -2726,7 +2726,7 @@ bool OSDMonitor::preprocess_query(MonOpRequestRef op)
   case MSG_OSD_FULL:
     return preprocess_full(op);
   case MSG_OSD_FAILURE:
-    return preprocess_failure(op);
+    return preprocess_failure(op); // osd failure 预处理
   case MSG_OSD_BOOT:
     return preprocess_boot(op);
   case MSG_OSD_ALIVE:
@@ -2770,7 +2770,7 @@ bool OSDMonitor::prepare_update(MonOpRequestRef op)
   case MSG_OSD_FULL:
     return prepare_full(op);
   case MSG_OSD_FAILURE:
-    return prepare_failure(op);
+    return prepare_failure(op); // osd failure 处理
   case MSG_OSD_BOOT:
     return prepare_boot(op);
   case MSG_OSD_ALIVE:
@@ -3115,7 +3115,7 @@ bool OSDMonitor::prepare_mark_me_dead(MonOpRequestRef op)
 
 bool OSDMonitor::can_mark_down(int i)
 {
-  if (osdmap.is_nodown(i)) {
+  if (osdmap.is_nodown(i)) { // osd 已经被标记为 nodown
     dout(5) << __func__ << " osd." << i << " is marked as nodown, "
             << "will not mark it down" << dendl;
     return false;
@@ -3128,7 +3128,7 @@ bool OSDMonitor::can_mark_down(int i)
   }
   int up = osdmap.get_num_up_osds() - pending_inc.get_net_marked_down(&osdmap);
   float up_ratio = (float)up / (float)num_osds;
-  if (up_ratio < g_conf()->mon_osd_min_up_ratio) {
+  if (up_ratio < g_conf()->mon_osd_min_up_ratio) { // 默认值 0.3
     dout(2) << __func__ << " current up_ratio " << up_ratio << " < min "
 	    << g_conf()->mon_osd_min_up_ratio
 	    << ", will not mark osd." << i << " down" << dendl;
@@ -3272,7 +3272,7 @@ bool OSDMonitor::check_failure(utime_t now, int target_osd, failure_info_t& fi)
   }
 
   set<string> reporters_by_subtree;
-  auto reporter_subtree_level = g_conf().get_val<string>("mon_osd_reporter_subtree_level");
+  auto reporter_subtree_level = g_conf().get_val<string>("mon_osd_reporter_subtree_level"); // 默认值 osd
   ceph_assert(fi.reporters.size());
   for (auto p = fi.reporters.begin(); p != fi.reporters.end();) {
     // get the parent bucket whose type matches with "reporter_subtree_level".
@@ -3291,15 +3291,15 @@ bool OSDMonitor::check_failure(utime_t now, int target_osd, failure_info_t& fi)
       p = fi.reporters.erase(p);
     }
   }
-  if (reporters_by_subtree.size() < g_conf().get_val<uint64_t>("mon_osd_min_down_reporters")) {
+  if (reporters_by_subtree.size() < g_conf().get_val<uint64_t>("mon_osd_min_down_reporters")) { // 默认值 2, 报告 osd failure 的个数不足则返回
     return false;
   }
   const utime_t failed_for = now - fi.get_failed_since();
   const utime_t grace = get_grace_time(now, target_osd, fi);
-  if (failed_for >= grace) {
+  if (failed_for >= grace) { // 是否超过宽限值
     dout(1) << " we have enough reporters to mark osd." << target_osd
 	    << " down" << dendl;
-    pending_inc.new_state[target_osd] = CEPH_OSD_UP;
+    pending_inc.new_state[target_osd] = CEPH_OSD_UP; // 异或，将 up 状态去掉
 
     mon.clog->info() << "osd." << target_osd << " failed ("
 		      << osdmap.crush->get_full_location_ordered_string(
@@ -3328,14 +3328,14 @@ bool OSDMonitor::is_failure_stale(utime_t now, failure_info_t& fi) const
 void OSDMonitor::force_failure(int target_osd, int by)
 {
   // already pending failure?
-  if (pending_inc.new_state.count(target_osd) &&
+  if (pending_inc.new_state.count(target_osd) && // 如果 pending_inc 已经记录了目标 osd
       pending_inc.new_state[target_osd] & CEPH_OSD_UP) {
     dout(10) << " already pending failure" << dendl;
     return;
   }
 
   dout(1) << " we're forcing failure of osd." << target_osd << dendl;
-  pending_inc.new_state[target_osd] = CEPH_OSD_UP;
+  pending_inc.new_state[target_osd] = CEPH_OSD_UP; // 去掉目标 osd 的 up 标志
   if (!pending_inc.new_xinfo.count(target_osd)) {
     pending_inc.new_xinfo[target_osd] = osdmap.osd_xinfo[target_osd];
   }
@@ -3392,12 +3392,12 @@ bool OSDMonitor::prepare_failure(MonOpRequestRef op)
       failure_info_t& fi = failure_info[target_osd];
       fi.cancel_report(reporter);
       if (fi.reporters.empty()) {
-	dout(10) << " removing last failure_info for osd." << target_osd
-		 << dendl;
-	failure_info.erase(target_osd);
+        dout(10) << " removing last failure_info for osd." << target_osd
+             << dendl;
+        failure_info.erase(target_osd);
       } else {
-	dout(10) << " failure_info for osd." << target_osd << " now "
-		 << fi.reporters.size() << " reporters" << dendl;
+        dout(10) << " failure_info for osd." << target_osd << " now "
+             << fi.reporters.size() << " reporters" << dendl;
       }
     } else {
       dout(10) << " no failure_info for osd." << target_osd << dendl;

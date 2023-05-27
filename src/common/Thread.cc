@@ -84,7 +84,7 @@ void *Thread::entry_wrapper()
     _set_affinity(cpuid);
 
   ceph_pthread_setname(pthread_self(), thread_name.c_str());
-  return entry();
+  return entry(); // 线程入口函数
 }
 
 const pthread_t &Thread::get_thread_id() const

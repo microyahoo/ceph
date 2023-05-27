@@ -239,7 +239,7 @@ int librados::RadosClient::connect()
     goto out;
 
   err = -ENOMEM;
-  messenger = Messenger::create_client_messenger(cct, "radosclient");
+  messenger = Messenger::create_client_messenger(cct, "radosclient"); // 创建客户端 messenger
   if (!messenger)
     goto out;
 

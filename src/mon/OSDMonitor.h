@@ -81,7 +81,7 @@ struct failure_info_t {
       reporters.insert_or_assign(who, failure_reporter_t{failed_since, op});
     if (new_reporter) {
       if (max_failed_since != utime_t() && max_failed_since < failed_since) {
-	max_failed_since = failed_since;
+        max_failed_since = failed_since;
       }
     }
   }
@@ -210,10 +210,10 @@ public:
   void handle_conf_change(const ConfigProxy& conf,
     const std::set<std::string> &changed) override;
   // [leader]
-  OSDMap::Incremental pending_inc;
+  OSDMap::Incremental pending_inc; // osdmap 的增量版本
   std::map<int, ceph::buffer::list> pending_metadata;
   std::set<int>             pending_metadata_rm;
-  std::map<int, failure_info_t> failure_info;
+  std::map<int, failure_info_t> failure_info;  // osd 被 report 为 failure 的信息 osd -> reporters
   std::map<int,utime_t>    down_pending_out;  // osd down -> out
   bool priority_convert = false;
   std::map<int64_t,std::set<snapid_t>> pending_pseudo_purged_snaps;

@@ -38,14 +38,14 @@ private:
   epoch_t epoch = 0;
   int32_t failed_for = 0;  // known to be failed since at least this long
 
-  MOSDFailure() : PaxosServiceMessage(MSG_OSD_FAILURE, 0, HEAD_VERSION) { }
+  MOSDFailure() : PaxosServiceMessage(MSG_OSD_FAILURE, 0, HEAD_VERSION) { } // 消息类型为 MSGOSD_FAILURE
   MOSDFailure(const uuid_d &fs, int osd, const entity_addrvec_t& av,
 	      int duration, epoch_t e)
     : PaxosServiceMessage(MSG_OSD_FAILURE, e, HEAD_VERSION, COMPAT_VERSION),
       fsid(fs),
       target_osd(osd),
       target_addrs(av),
-      flags(FLAG_FAILED),
+      flags(FLAG_FAILED), // 设置 FLAG_FAILED 标志位
       epoch(e), failed_for(duration) { }
   MOSDFailure(const uuid_d &fs, int osd, const entity_addrvec_t& av,
 	      int duration,

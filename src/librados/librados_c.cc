@@ -216,7 +216,7 @@ extern "C" int LIBRADOS_C_API_DEFAULT_F(rados_connect)(rados_t cluster)
 {
   tracepoint(librados, rados_connect_enter, cluster);
   librados::RadosClient *client = (librados::RadosClient *)cluster;
-  int retval = client->connect();
+  int retval = client->connect(); // client 连接到 cluster
   tracepoint(librados, rados_connect_exit, retval);
   return retval;
 }
@@ -1157,7 +1157,7 @@ extern "C" int LIBRADOS_C_API_DEFAULT_F(rados_ioctx_create2)(
   librados::RadosClient *client = (librados::RadosClient *)cluster;
   librados::IoCtxImpl *ctx;
 
-  int r = client->create_ioctx(pool_id, &ctx);
+  int r = client->create_ioctx(pool_id, &ctx); // 创建 ioctx
   if (r < 0) {
     tracepoint(librados, rados_ioctx_create2_exit, r, NULL);
     return r;

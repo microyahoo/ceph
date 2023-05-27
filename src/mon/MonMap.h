@@ -100,7 +100,7 @@ class MonMap {
   utime_t last_changed;
   utime_t created;
 
-  std::map<std::string, mon_info_t> mon_info;
+  std::map<std::string, mon_info_t> mon_info; // mon_name -> mon_info_t(包括name，priority，weight, public_addrs)
   std::map<entity_addr_t, std::string> addr_mons;
 
   std::vector<std::string> ranks;

@@ -1653,20 +1653,20 @@ protected:
 
     void return_waiting_threads() override {
       for(uint32_t i = 0; i < osd->num_shards; i++) {
-	OSDShard* sdata = osd->shards[i];
-	assert (NULL != sdata);
-	std::scoped_lock l{sdata->sdata_wait_lock};
-	sdata->stop_waiting = true;
-	sdata->sdata_cond.notify_all();
+        OSDShard* sdata = osd->shards[i];
+        assert (NULL != sdata);
+        std::scoped_lock l{sdata->sdata_wait_lock};
+        sdata->stop_waiting = true;
+        sdata->sdata_cond.notify_all();
       }
     }
 
     void stop_return_waiting_threads() override {
       for(uint32_t i = 0; i < osd->num_shards; i++) {
-	OSDShard* sdata = osd->shards[i];
-	assert (NULL != sdata);
-	std::scoped_lock l{sdata->sdata_wait_lock};
-	sdata->stop_waiting = false;
+        OSDShard* sdata = osd->shards[i];
+        assert (NULL != sdata);
+        std::scoped_lock l{sdata->sdata_wait_lock};
+        sdata->stop_waiting = false;
       }
     }
 
@@ -1691,15 +1691,15 @@ protected:
       ceph_assert(sdata);
       std::lock_guard l(sdata->shard_lock);
       if (thread_index < osd->num_shards) {
-	return sdata->scheduler->empty() && sdata->context_queue.empty();
+        return sdata->scheduler->empty() && sdata->context_queue.empty();
       } else {
-	return sdata->scheduler->empty();
+        return sdata->scheduler->empty();
       }
     }
 
     void handle_oncommits(std::list<Context*>& oncommits) {
       for (auto p : oncommits) {
-	p->complete(0);
+        p->complete(0);
       }
     }
   } op_shardedwq;

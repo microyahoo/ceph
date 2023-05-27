@@ -2318,7 +2318,7 @@ OSD::OSD(CephContext *cct_, ObjectStore *store_,
 				  "osd_pg_epoch_max_lag_factor")),
   osd_compat(get_osd_compat_set()),
   osd_op_tp(cct, "OSD::osd_op_tp", "tp_osd_tp",
-	    get_num_op_threads()),
+	    get_num_op_threads()), // (op shards) x (每个 shard 的线程数)
   heartbeat_stop(false),
   heartbeat_need_update(true),
   hb_front_client_messenger(hb_client_front),
@@ -3809,7 +3809,7 @@ int OSD::init()
     }
   }
 
-  osd_op_tp.start();
+  osd_op_tp.start(); // ? 启动线程池
 
   // start the heartbeat
   heartbeat_thread.create("osd_srv_heartbt");
@@ -5574,7 +5574,7 @@ void OSD::handle_osd_ping(MOSDPing *m)
     break;
 
   case MOSDPing::PING_REPLY:
-    {
+    { // 收到心跳应答消息后会更新时间戳，避免心跳超时。
       map<int,HeartbeatInfo>::iterator i = heartbeat_peers.find(from);
       if (i != heartbeat_peers.end()) {
         auto acked = i->second.ping_history.find(m->ping_stamp);
@@ -6434,7 +6434,7 @@ bool OSD::ms_handle_reset(Connection *con)
 
 bool OSD::ms_handle_refused(Connection *con)
 {
-  if (!cct->_conf->osd_fast_fail_on_connection_refused)
+  if (!cct->_conf->osd_fast_fail_on_connection_refused) // 默认值 true
     return false;
 
   auto session = ceph::ref_cast<Session>(con->get_priv());
@@ -7313,7 +7313,7 @@ void OSD::ms_fast_dispatch(Message *m)
         }
   }
 
-  OpRequestRef op = op_tracker.create_request<OpRequest, Message*>(m);
+  OpRequestRef op = op_tracker.create_request<OpRequest, Message*>(m); // 将message 封装成 OpRequest
   {
 #ifdef WITH_LTTNG
     osd_reqid_t reqid = op->get_reqid();
@@ -9987,7 +9987,7 @@ void OSD::enqueue_op(spg_t pg, OpRequestRef&& op, epoch_t epoch)
         unique_ptr<OpSchedulerItem::OpQueueable>(new PGRecoveryMsg(pg, std::move(op))),
         cost, priority, stamp, owner, epoch));
   } else {
-    op_shardedwq.queue(
+    op_shardedwq.queue( // 将 op 加入 shard 队列
       OpSchedulerItem(
         unique_ptr<OpSchedulerItem::OpQueueable>(new PGOpItem(pg, std::move(op))),
         cost, priority, stamp, owner, epoch));

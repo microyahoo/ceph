@@ -934,7 +934,7 @@ int MonMap::build_initial(CephContext *cct, bool for_mkfs, ostream& errout)
     fsid = new_fsid;
   }
   // -m foo?
-  if (const auto mon_host = conf.get_val<std::string>("mon_host");
+  if (const auto mon_host = conf.get_val<std::string>("mon_host"); // 从配置文件中读取 mon host, 格式为 "[v2:127.0.0.1:40681,v1:127.0.0.1:40682] [v2:127.0.0.1:40683,v1:127.0.0.1:40684] [v2:127.0.0.1:40685,v1:127.0.0.1:40686]"
       !mon_host.empty()) {
     auto ret = init_with_ips(mon_host, for_mkfs, "noname-");
     if (ret == -EINVAL) {

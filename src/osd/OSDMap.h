@@ -86,7 +86,7 @@ WRITE_CLASS_ENCODER(osd_info_t)
 
 std::ostream& operator<<(std::ostream& out, const osd_info_t& info);
 
-struct osd_xinfo_t {
+struct osd_xinfo_t { // 记录 osd 扩展信息
   utime_t down_stamp;      ///< timestamp when we were last marked down
   float laggy_probability; ///< encoded as __u32: 0 = definitely not laggy, 0xffffffff definitely laggy
   __u32 laggy_interval;    ///< average interval between being marked laggy and recovering
@@ -393,7 +393,7 @@ public:
     mempool::osdmap::map<int32_t,std::pair<epoch_t,epoch_t> > new_last_clean_interval;
     mempool::osdmap::map<int32_t,epoch_t> new_lost;
     mempool::osdmap::map<int32_t,uuid_d> new_uuid;
-    mempool::osdmap::map<int32_t,osd_xinfo_t> new_xinfo;
+    mempool::osdmap::map<int32_t,osd_xinfo_t> new_xinfo; // osd 扩展信息
 
     mempool::osdmap::map<entity_addr_t,utime_t> new_blocklist;
     mempool::osdmap::vector<entity_addr_t> old_blocklist;

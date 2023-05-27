@@ -156,15 +156,15 @@ void Processor::start()
   // start thread
   worker->center.submit_to(worker->center.get_id(), [this]() {
       for (auto& listen_socket : listen_sockets) {
-	if (listen_socket) {
-          if (listen_socket.fd() == -1) {
-            ldout(msgr->cct, 1) << __func__ 
-                << " Error: processor restart after listen_socket.fd closed. " 
-                << this << dendl;
-            return;
-          }
-	  worker->center.create_file_event(listen_socket.fd(), EVENT_READABLE,
-					   listen_handler); } // 创建可读事件，将 listen_socket 对应的 fd 加入到 epoll 进行管理, 回调函数执行的是 accept()
+        if (listen_socket) {
+              if (listen_socket.fd() == -1) {
+                ldout(msgr->cct, 1) << __func__ 
+                    << " Error: processor restart after listen_socket.fd closed. " 
+                    << this << dendl;
+                return;
+              }
+          worker->center.create_file_event(listen_socket.fd(), EVENT_READABLE,
+                           listen_handler); } // 创建可读事件，将 listen_socket 对应的 fd 加入到 epoll 进行管理, 回调函数执行的是 accept()
       }
     }, false);
 }
@@ -254,7 +254,7 @@ struct StackSingleton {
   explicit StackSingleton(CephContext *c): cct(c) {}
   void ready(std::string &type) {
     if (!stack)
-      stack = NetworkStack::create(cct, type);
+      stack = NetworkStack::create(cct, type); // 创建指定类型的 NetworkStack
   }
   ~StackSingleton() {
     stack->stop();
@@ -303,7 +303,7 @@ AsyncMessenger::AsyncMessenger(CephContext *cct, entity_name_t name,
   if (stack->support_local_listen_table())
     processor_num = stack->get_num_worker();
   for (unsigned i = 0; i < processor_num; ++i)
-    processors.push_back(new Processor(this, stack->get_worker(i), cct)); // ? 创建 Processor
+    processors.push_back(new Processor(this, stack->get_worker(i), cct)); // 创建 Processor
 }
 
 /**
@@ -334,7 +334,7 @@ void AsyncMessenger::ready()
   std::lock_guard l{lock};
   for (auto &&p : processors)
     p->start();
-  dispatch_queue.start(); // ? 还没看
+  dispatch_queue.start(); // 启动 dispatch 线程和 local delivery 线程
 }
 
 int AsyncMessenger::shutdown()

@@ -536,7 +536,7 @@ struct ObjectOperation {
   void write(uint64_t off, ceph::buffer::list& bl,
 	     uint64_t truncate_size,
 	     uint32_t truncate_seq) {
-    add_data(CEPH_OSD_OP_WRITE, off, bl.length(), bl);
+    add_data(CEPH_OSD_OP_WRITE, off, bl.length(), bl); // CEPH_OSD_OP_WRITE op
     OSDOp& o = *ops.rbegin();
     o.op.extent.truncate_size = truncate_size;
     o.op.extent.truncate_seq = truncate_seq;
@@ -1674,7 +1674,7 @@ private:
   ceph::shared_mutex pg_mapping_lock =
     ceph::make_shared_mutex("Objecter::pg_mapping_lock");
   // pool -> pg mapping
-  std::map<int64_t, std::vector<pg_mapping_t>> pg_mappings;
+  std::map<int64_t, std::vector<pg_mapping_t>> pg_mappings; // pool -> pg mapping[pg.ps] -> pg_mapping
 
   // convenient accessors
   bool lookup_pg_mapping(const pg_t& pg, pg_mapping_t* pg_mapping) {
@@ -1756,8 +1756,8 @@ public:
 
     object_t base_oid;
     object_locator_t base_oloc;
-    object_t target_oid;
-    object_locator_t target_oloc;
+    object_t target_oid; // 对象名
+    object_locator_t target_oloc; // 记录目标对象的位置，包括 pool，key，namespace，hash 等等
 
     ///< true if we are directed at base_pgid, not base_oid
     bool precalc_pgid = false;
@@ -2389,7 +2389,7 @@ public:
 
     OSDSession(CephContext *cct, int o) :
       osd(o), incarnation(0), con(NULL),
-      num_locks(cct->_conf->objecter_completion_locks_per_session),
+      num_locks(cct->_conf->objecter_completion_locks_per_session), // 默认值 32
       completion_locks(new std::mutex[num_locks]) {}
 
     ~OSDSession() override;
@@ -2633,8 +2633,8 @@ private:
   }
   bool ms_can_fast_dispatch(const Message *m) const override {
     switch (m->get_type()) {
-    case CEPH_MSG_OSD_OPREPLY:
-    case CEPH_MSG_WATCH_NOTIFY:
+    case CEPH_MSG_OSD_OPREPLY: // op reply
+    case CEPH_MSG_WATCH_NOTIFY: // watch notify
       return true;
     default:
       return false;
