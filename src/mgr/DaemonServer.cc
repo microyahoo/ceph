@@ -719,7 +719,7 @@ bool DaemonServer::handle_report(const ref_t<MMgrReport>& m)
       }
       if (m->get_connection()->peer_is_osd() || m->get_connection()->peer_is_mon()) {
         // only OSD and MON send health_checks to me now
-        daemon->daemon_health_metrics = std::move(m->daemon_health_metrics);
+        daemon->daemon_health_metrics = std::move(m->daemon_health_metrics);// mon 和 osd 发送 health metrics 信息
         dout(10) << "daemon_health_metrics " << daemon->daemon_health_metrics
                  << dendl;
       }
@@ -2615,14 +2615,14 @@ void DaemonServer::send_report()
       cluster_state.update_delta_stats();
 
       if (pending_service_map.epoch) {
-	_prune_pending_service_map();
-	if (pending_service_map_dirty >= pending_service_map.epoch) {
-	  pending_service_map.modified = ceph_clock_now();
-	  encode(pending_service_map, m->service_map_bl, CEPH_FEATURES_ALL);
-	  dout(10) << "sending service_map e" << pending_service_map.epoch
-		   << dendl;
-	  pending_service_map.epoch++;
-	}
+        _prune_pending_service_map();
+        if (pending_service_map_dirty >= pending_service_map.epoch) {
+          pending_service_map.modified = ceph_clock_now();
+          encode(pending_service_map, m->service_map_bl, CEPH_FEATURES_ALL);
+          dout(10) << "sending service_map e" << pending_service_map.epoch
+               << dendl;
+          pending_service_map.epoch++;
+        }
       }
 
       cluster_state.with_osdmap([&](const OSDMap& osdmap) {
@@ -2666,7 +2666,7 @@ void DaemonServer::send_report()
           tie(acc, std::ignore) = accumulated.emplace(metric.get_type(),
               std::move(collector));
         }
-        acc->second->update(key, metric);
+        acc->second->update(key, metric); // 更新 daemon health metrics，包括 slow ops 个数，阻塞时间
       }
     }
   }

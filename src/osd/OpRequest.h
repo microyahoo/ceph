@@ -134,7 +134,7 @@ public:
     return "no flag points reached";
   }
 
-  static std::string get_state_string(uint8_t flag) {
+  static std::string get_state_string(uint8_t flag) { // op type
     std::string flag_point;
 
     switch(flag) {

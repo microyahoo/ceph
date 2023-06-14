@@ -27,7 +27,7 @@ namespace ceph {
   #else
   unsigned _page_size = sysconf(_SC_PAGESIZE);
   #endif
-  unsigned long _page_mask = ~(unsigned long)(_page_size - 1);
+  unsigned long _page_mask = ~(unsigned long)(_page_size - 1); // 将 page size - 1取反，即将低位全部置为 0 
   unsigned _page_shift = _get_bits_of(_page_size - 1);
 
 }

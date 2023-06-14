@@ -101,7 +101,7 @@ struct ShardedTrackingData;
 class OpTracker {
   friend class OpHistory;
   std::atomic<int64_t> seq = { 0 };
-  std::vector<ShardedTrackingData*> sharded_in_flight_list;
+  std::vector<ShardedTrackingData*> sharded_in_flight_list; // 这个参数的作用？
   OpHistory history;
   uint32_t num_optracker_shards;
   float complaint_time;
@@ -112,7 +112,7 @@ class OpTracker {
 public:
   CephContext *cct;
   OpTracker(CephContext *cct_, bool tracking, uint32_t num_shards);
-      
+
   void set_complaint_and_threshold(float time, int threshold) {
     complaint_time = time;
     log_threshold = threshold;

@@ -23,7 +23,7 @@
 #include <limits.h>
 #include <sys/socket.h>
 
-ssize_t safe_read(int fd, void *buf, size_t count)
+ssize_t safe_read(int fd, void *buf, size_t count) // 从 fd 中读取 count 个字节到 buf
 {
 	size_t cnt = 0;
 

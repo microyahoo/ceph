@@ -1324,9 +1324,9 @@ decode(std::array<T, N>& v, bufferlist::const_iterator& p)
 /**
  * start encoding block
  *
- * @param v current (code) version of the encoding
- * @param compat oldest code version that can decode it
- * @param bl bufferlist to encode to
+ * @param v current (code) version of the encoding // 当前 encoding 版本
+ * @param compat oldest code version that can decode it // 能够 decode 的最老版本
+ * @param bl bufferlist to encode to // bufferlist 中预留空间用于存储 v, compat 及数据长度
  *
  */
 #define ENCODE_START(v, compat, bl)			     \
@@ -1341,7 +1341,7 @@ decode(std::array<T, N>& v, bufferlist::const_iterator& p)
 
 /**
  * finish encoding block
- *
+ * 将 struct_v、struct_compat、struct_len 数据写入预留空间
  * @param bl bufferlist we were encoding to
  * @param new_struct_compat struct-compat value to use
  */
@@ -1378,7 +1378,7 @@ decode(std::array<T, N>& v, bufferlist::const_iterator& p)
 /**
  * start a decoding block
  *
- * @param v current version of the encoding that the code supports/encodes
+ * @param v current version of the encoding that the code supports/encodes // decode出struct_compat,判断当前版本能否decode，v>=struct_compat说明可以decode
  * @param bl bufferlist::iterator for the encoded data
  */
 #define DECODE_START(v, bl)						\

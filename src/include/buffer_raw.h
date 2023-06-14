@@ -33,11 +33,11 @@ inline namespace v15_2_0 {
     std::aligned_storage<sizeof(ptr_node),
 			 alignof(ptr_node)>::type bptr_storage;
   protected:
-    char *data;
-    unsigned len;
+    char *data; // 指向原始数据 raw 的指针
+    unsigned len; // 记录了该 buffer::raw 数据区数据的长度
   public:
-    ceph::atomic<unsigned> nref { 0 };
-    int mempool;
+    ceph::atomic<unsigned> nref { 0 }; // 引用计数
+    int mempool; // 其对应的内存池的 index，这个和 data 空间的分配有关
 
     std::pair<size_t, size_t> last_crc_offset {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()};
     std::pair<uint32_t, uint32_t> last_crc_val;

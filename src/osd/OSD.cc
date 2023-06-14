@@ -3819,7 +3819,7 @@ int OSD::init()
 			     new C_Tick(this));
   {
     std::lock_guard l(tick_timer_lock);
-    tick_timer_without_osd_lock.add_event_after(get_tick_interval(),
+    tick_timer_without_osd_lock.add_event_after(get_tick_interval(), // 间隔周期为 1s +/- 5%
 						new C_Tick_WithoutOSDLock(this));
   }
 
@@ -6150,7 +6150,7 @@ void OSD::tick_without_osd_lock()
     }
   }
 
-  mgrc.update_daemon_health(get_health_metrics());
+  mgrc.update_daemon_health(get_health_metrics()); // 统计 slow ops，更新 osd health
   service.kick_recovery_queue(); // ? kick recovery queue
   tick_timer_without_osd_lock.add_event_after(get_tick_interval(),
 					      new C_Tick_WithoutOSDLock(this));
@@ -7876,14 +7876,14 @@ MPGStats* OSD::collect_pg_stats()
   return m;
 }
 
-vector<DaemonHealthMetric> OSD::get_health_metrics()
+vector<DaemonHealthMetric> OSD::get_health_metrics() // 统计 slow ops
 {
   vector<DaemonHealthMetric> metrics;
   {
     utime_t oldest_secs;
     const utime_t now = ceph_clock_now();
     auto too_old = now;
-    too_old -= cct->_conf.get_val<double>("osd_op_complaint_time");
+    too_old -= cct->_conf.get_val<double>("osd_op_complaint_time"); // 默认 30s
     int slow = 0;
     TrackedOpRef oldest_op;
     OSDMapRef osdmap = get_osdmap();
@@ -7894,7 +7894,7 @@ vector<DaemonHealthMetric> OSD::get_health_metrics()
     // slow ops.
     map<uint64_t, int> slow_op_pools;
     bool log_aggregated_slow_op =
-	    cct->_conf.get_val<bool>("osd_aggregated_slow_ops_logging");
+	    cct->_conf.get_val<bool>("osd_aggregated_slow_ops_logging"); // 默认 true
     auto count_slow_ops = [&](TrackedOp& op) {
       if (op.get_initiated() < too_old) {
         stringstream ss;
@@ -7917,13 +7917,13 @@ vector<DaemonHealthMetric> OSD::get_health_metrics()
         } else {
           clog->warn() << ss.str();
         }
-	slow++;
-	if (!oldest_op || op.get_initiated() < oldest_op->get_initiated()) {
-	  oldest_op = &op;
-	}
-	return true;
+        slow++;
+        if (!oldest_op || op.get_initiated() < oldest_op->get_initiated()) {
+          oldest_op = &op;
+        }
+        return true;
       } else {
-	return false;
+        return false;
       }
     };
     if (op_tracker.visit_ops_in_flight(&oldest_secs, count_slow_ops)) {

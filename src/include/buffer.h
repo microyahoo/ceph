@@ -167,8 +167,8 @@ struct error_code;
   class CEPH_BUFFER_API ptr {
     friend class list;
   protected:
-    raw *_raw;
-    unsigned _off, _len;
+    raw *_raw; // 指向 raw 的指针
+    unsigned _off, _len; // 数据偏移量和数据长度
   private:
 
     void release();
@@ -364,9 +364,9 @@ struct error_code;
     };
     struct disposer {
       void operator()(ptr_node* const delete_this) {
-	if (!__builtin_expect(dispose_if_hypercombined(delete_this), 0)) {
-	  delete delete_this;
-	}
+        if (!__builtin_expect(dispose_if_hypercombined(delete_this), 0)) {
+          delete delete_this;
+        }
       }
     };
 
@@ -384,7 +384,7 @@ struct error_code;
     static std::unique_ptr<ptr_node, disposer>
     create(Args&&... args) {
       return std::unique_ptr<ptr_node, disposer>(
-	new ptr_node(std::forward<Args>(args)...));
+        new ptr_node(std::forward<Args>(args)...));
     }
 
     static ptr_node* copy_hypercombined(const ptr_node& copy_this);
@@ -426,60 +426,60 @@ struct error_code;
     public:
       template <class T>
       class buffers_iterator {
-	typename std::conditional<
-	  std::is_const<T>::value, const ptr_hook*, ptr_hook*>::type cur;
-	template <class U> friend class buffers_iterator;
-      public:
-	using value_type = T;
-	using reference = typename std::add_lvalue_reference<T>::type;
-	using pointer = typename std::add_pointer<T>::type;
-	using difference_type = std::ptrdiff_t;
-	using iterator_category = std::forward_iterator_tag;
+        typename std::conditional<
+          std::is_const<T>::value, const ptr_hook*, ptr_hook*>::type cur;
+        template <class U> friend class buffers_iterator;
+          public:
+        using value_type = T;
+        using reference = typename std::add_lvalue_reference<T>::type;
+        using pointer = typename std::add_pointer<T>::type;
+        using difference_type = std::ptrdiff_t;
+        using iterator_category = std::forward_iterator_tag;
 
-	template <class U>
-	buffers_iterator(U* const p)
-	  : cur(p) {
-	}
-	template <class U>
-	buffers_iterator(const buffers_iterator<U>& other)
-	  : cur(other.cur) {
-	}
-	buffers_iterator() = default;
+        template <class U>
+        buffers_iterator(U* const p)
+          : cur(p) {
+        }
+        template <class U>
+        buffers_iterator(const buffers_iterator<U>& other)
+          : cur(other.cur) {
+        }
+        buffers_iterator() = default;
 
-	T& operator*() const {
-	  return *reinterpret_cast<T*>(cur);
-	}
-	T* operator->() const {
-	  return reinterpret_cast<T*>(cur);
-	}
+        T& operator*() const {
+          return *reinterpret_cast<T*>(cur);
+        }
+        T* operator->() const {
+          return reinterpret_cast<T*>(cur);
+        }
 
-	buffers_iterator& operator++() {
-	  cur = cur->next;
-	  return *this;
-	}
-	buffers_iterator operator++(int) {
-	  const auto temp(*this);
-	  ++*this;
-	  return temp;
-	}
+        buffers_iterator& operator++() {
+          cur = cur->next;
+          return *this;
+        }
+        buffers_iterator operator++(int) {
+          const auto temp(*this);
+          ++*this;
+          return temp;
+        }
 
-	template <class U>
-	buffers_iterator& operator=(buffers_iterator<U>& other) {
-	  cur = other.cur;
-	  return *this;
-	}
+        template <class U>
+        buffers_iterator& operator=(buffers_iterator<U>& other) {
+          cur = other.cur;
+          return *this;
+        }
 
-	bool operator==(const buffers_iterator& rhs) const {
-	  return cur == rhs.cur;
-	}
-	bool operator!=(const buffers_iterator& rhs) const {
-	  return !(*this==rhs);
-	}
+        bool operator==(const buffers_iterator& rhs) const {
+          return cur == rhs.cur;
+        }
+        bool operator!=(const buffers_iterator& rhs) const {
+          return !(*this==rhs);
+        }
 
-	using citer_t = buffers_iterator<typename std::add_const<T>::type>;
-	operator citer_t() const {
-	  return citer_t(cur);
-	}
+        using citer_t = buffers_iterator<typename std::add_const<T>::type>;
+        operator citer_t() const {
+          return citer_t(cur);
+        }
       };
 
       typedef buffers_iterator<const ptr_node> const_iterator;
@@ -496,133 +496,133 @@ struct error_code;
       buffers_t(buffers_t&& other)
 	: _root(other._root.next == &other._root ? &_root : other._root.next),
 	  _tail(other._tail == &other._root ? &_root : other._tail) {
-	other._root.next = &other._root;
-	other._tail = &other._root;
+        other._root.next = &other._root;
+        other._tail = &other._root;
 
-	_tail->next = &_root;
+        _tail->next = &_root;
       }
       buffers_t& operator=(buffers_t&& other) {
-	if (&other != this) {
-	  clear_and_dispose();
-	  swap(other);
-	}
-	return *this;
+        if (&other != this) {
+          clear_and_dispose();
+          swap(other);
+        }
+        return *this;
       }
 
       void push_back(reference item) {
-	item.next = &_root;
-	// this updates _root.next when called on empty
-	_tail->next = &item;
-	_tail = &item;
+        item.next = &_root;
+        // this updates _root.next when called on empty
+        _tail->next = &item;
+        _tail = &item;
       }
 
       void push_front(reference item) {
-	item.next = _root.next;
-	_root.next = &item;
-	_tail = _tail == &_root ? &item : _tail;
+        item.next = _root.next;
+        _root.next = &item;
+        _tail = _tail == &_root ? &item : _tail;
       }
 
       // *_after
       iterator erase_after(const_iterator it) {
-	const auto* to_erase = it->next;
+        const auto* to_erase = it->next;
 
-	it->next = to_erase->next;
-	_root.next = _root.next == to_erase ? to_erase->next : _root.next;
-	_tail = _tail == to_erase ? (ptr_hook*)&*it : _tail;
-	return it->next;
+        it->next = to_erase->next;
+        _root.next = _root.next == to_erase ? to_erase->next : _root.next;
+        _tail = _tail == to_erase ? (ptr_hook*)&*it : _tail;
+        return it->next;
       }
 
       void insert_after(const_iterator it, reference item) {
-	item.next = it->next;
-	it->next = &item;
-	_root.next = it == end() ? &item : _root.next;
-	_tail = const_iterator(_tail) == it ? &item : _tail;
+        item.next = it->next;
+        it->next = &item;
+        _root.next = it == end() ? &item : _root.next;
+        _tail = const_iterator(_tail) == it ? &item : _tail;
       }
 
       void splice_back(buffers_t& other) {
-	if (other.empty()) {
-	  return;
-	}
+        if (other.empty()) {
+          return;
+        }
 
-	other._tail->next = &_root;
-	// will update root.next if empty() == true
-	_tail->next = other._root.next;
-	_tail = other._tail;
+        other._tail->next = &_root;
+        // will update root.next if empty() == true
+        _tail->next = other._root.next;
+        _tail = other._tail;
 
-	other._root.next = &other._root;
-	other._tail = &other._root;
+        other._root.next = &other._root;
+        other._tail = &other._root;
       }
 
       bool empty() const { return _tail == &_root; }
 
       const_iterator begin() const {
-	return _root.next;
+        return _root.next;
       }
       const_iterator before_begin() const {
-	return &_root;
+        return &_root;
       }
       const_iterator end() const {
-	return &_root;
+        return &_root;
       }
       iterator begin() {
-	return _root.next;
+        return _root.next;
       }
       iterator before_begin() {
-	return &_root;
+        return &_root;
       }
       iterator end() {
-	return &_root;
+        return &_root;
       }
 
       reference front() {
-	return reinterpret_cast<reference>(*_root.next);
+        return reinterpret_cast<reference>(*_root.next);
       }
       reference back() {
-	return reinterpret_cast<reference>(*_tail);
+        return reinterpret_cast<reference>(*_tail);
       }
       const_reference front() const {
-	return reinterpret_cast<const_reference>(*_root.next);
+        return reinterpret_cast<const_reference>(*_root.next);
       }
       const_reference back() const {
-	return reinterpret_cast<const_reference>(*_tail);
+        return reinterpret_cast<const_reference>(*_tail);
       }
 
       void clone_from(const buffers_t& other) {
-	clear_and_dispose();
-	for (auto& node : other) {
-	  ptr_node* clone = ptr_node::cloner()(node);
-	  push_back(*clone);
-	}
+        clear_and_dispose();
+        for (auto& node : other) {
+          ptr_node* clone = ptr_node::cloner()(node);
+          push_back(*clone);
+        }
       }
       void clear_and_dispose() {
-	for (auto it = begin(); it != end(); /* nop */) {
-	  auto& node = *it;
-	  it = it->next;
-	  ptr_node::disposer()(&node);
-	}
-	_root.next = &_root;
-	_tail = &_root;
+        for (auto it = begin(); it != end(); /* nop */) {
+          auto& node = *it;
+          it = it->next;
+          ptr_node::disposer()(&node);
+        }
+        _root.next = &_root;
+        _tail = &_root;
       }
       iterator erase_after_and_dispose(iterator it) {
-	auto* to_dispose = &*std::next(it);
-	auto ret = erase_after(it);
-	ptr_node::disposer()(to_dispose);
-	return ret;
+        auto* to_dispose = &*std::next(it);
+        auto ret = erase_after(it);
+        ptr_node::disposer()(to_dispose);
+        return ret;
       }
 
       void swap(buffers_t& other) {
-	const auto copy_root = _root;
-	_root.next = \
-	  other._root.next == &other._root ? &this->_root : other._root.next;
-	other._root.next = \
-	  copy_root.next == &_root ? &other._root : copy_root.next;
+        const auto copy_root = _root;
+        _root.next = \
+          other._root.next == &other._root ? &this->_root : other._root.next;
+        other._root.next = \
+          copy_root.next == &_root ? &other._root : copy_root.next;
 
-	const auto copy_tail = _tail;
-	_tail = other._tail == &other._root ? &this->_root : other._tail;
-	other._tail = copy_tail == &_root ? &other._root : copy_tail;
+        const auto copy_tail = _tail;
+        _tail = other._tail == &other._root ? &this->_root : other._tail;
+        other._tail = copy_tail == &_root ? &other._root : copy_tail;
 
-	_tail->next = &_root;
-	other._tail->next = &other._root;
+        _tail->next = &_root;
+        other._tail->next = &other._root;
       }
     };
 
@@ -630,13 +630,13 @@ struct error_code;
 
   private:
     // my private bits
-    buffers_t _buffers;
+    buffers_t _buffers; // ptr 循环链表
 
     // track bufferptr we can modify (especially ::append() to). Not all bptrs
     // bufferlist holds have this trait -- if somebody ::push_back(const ptr&),
     // he expects it won't change.
-    ptr_node* _carriage;
-    unsigned _len, _num;
+    ptr_node* _carriage; // 指向 list 中最后一个可修改的 ptr 指针
+    unsigned _len, _num; // _len 指list数据长度，_num 指list包含的ptr个数
 
     template <bool is_const>
     class CEPH_BUFFER_API iterator_impl {
@@ -650,9 +650,9 @@ struct error_code;
       typedef typename std::conditional<is_const,
 					typename buffers_t::const_iterator,
 					typename buffers_t::iterator>::type list_iter_t;
-      bl_t* bl;
-      list_t* ls;  // meh.. just here to avoid an extra pointer dereference..
-      list_iter_t p;
+      bl_t* bl; // 指向 list 本身
+      list_t* ls;  // meh.. just here to avoid an extra pointer dereference.. // 指向 buffers_t，存储 ptr 的链表
+      list_iter_t p; // buffers_t 的迭代器
       unsigned off; // in bl
       unsigned p_off;   // in *p
       friend class iterator_impl<true>;
@@ -680,8 +680,8 @@ struct error_code;
 
       /// true if iterator is at the end of the buffer::list
       bool end() const {
-	return p == ls->end();
-	//return off == bl->length();
+        return p == ls->end();
+        //return off == bl->length();
       }
       void seek(unsigned o);
       char operator*() const;
@@ -713,11 +713,11 @@ struct error_code;
 
       friend bool operator==(const iterator_impl& lhs,
 			     const iterator_impl& rhs) {
-	return &lhs.get_bl() == &rhs.get_bl() && lhs.get_off() == rhs.get_off();
+        return &lhs.get_bl() == &rhs.get_bl() && lhs.get_off() == rhs.get_off();
       }
       friend bool operator!=(const iterator_impl& lhs,
 			     const iterator_impl& rhs) {
-	return &lhs.get_bl() != &rhs.get_bl() || lhs.get_off() != rhs.get_off();
+        return &lhs.get_bl() != &rhs.get_bl() || lhs.get_off() != rhs.get_off();
       }
     };
 
@@ -735,9 +735,9 @@ struct error_code;
     };
 
     struct reserve_t {
-      char* bp_data;
-      unsigned* bp_len;
-      unsigned* bl_len;
+      char* bp_data; // ptr 数据结尾，剩余空间头
+      unsigned* bp_len; // ptr 指针数据长度
+      unsigned* bl_len; // bufferlist 的数据长度
     };
 
     class contiguous_appender {
@@ -757,10 +757,10 @@ struct error_code;
       }
 
       void flush_and_continue() {
-	const size_t l = pos - space.bp_data;
-	*space.bp_len += l;
-	*space.bl_len += l;
-	space.bp_data = pos;
+        const size_t l = pos - space.bp_data;
+        *space.bp_len += l;
+        *space.bl_len += l;
+        space.bp_data = pos;
       }
 
       friend class list;
@@ -768,54 +768,54 @@ struct error_code;
 
     public:
       ~contiguous_appender() {
-	flush_and_continue();
+        flush_and_continue();
       }
 
       size_t get_out_of_band_offset() const {
-	return out_of_band_offset;
+        return out_of_band_offset;
       }
       void append(const char* __restrict__ p, size_t l) {
-	maybe_inline_memcpy(pos, p, l, 16);
-	pos += l;
+        maybe_inline_memcpy(pos, p, l, 16);
+        pos += l;
       }
       char *get_pos_add(size_t len) {
-	char *r = pos;
-	pos += len;
-	return r;
+        char *r = pos;
+        pos += len;
+        return r;
       }
       char *get_pos() const {
-	return pos;
+        return pos;
       }
 
       void append(const bufferptr& p) {
-	const auto plen = p.length();
-	if (!plen) {
-	  return;
-	}
-	if (deep) {
-	  append(p.c_str(), plen);
-	} else {
-	  flush_and_continue();
-	  bl.append(p);
-	  space = bl.obtain_contiguous_space(0);
-	  out_of_band_offset += plen;
-	}
+        const auto plen = p.length();
+        if (!plen) {
+          return;
+        }
+        if (deep) {
+          append(p.c_str(), plen);
+        } else {
+          flush_and_continue();
+          bl.append(p);
+          space = bl.obtain_contiguous_space(0);
+          out_of_band_offset += plen;
+        }
       }
       void append(const bufferlist& l) {
-	if (deep) {
-	  for (const auto &p : l._buffers) {
-	    append(p.c_str(), p.length());
-	  }
-	} else {
-	  flush_and_continue();
-	  bl.append(l);
-	  space = bl.obtain_contiguous_space(0);
-	  out_of_band_offset += l.length();
-	}
+        if (deep) {
+          for (const auto &p : l._buffers) {
+            append(p.c_str(), p.length());
+          }
+        } else {
+          flush_and_continue();
+          bl.append(l);
+          space = bl.obtain_contiguous_space(0);
+          out_of_band_offset += l.length();
+        }
       }
 
       size_t get_logical_offset() const {
-	return out_of_band_offset + (pos - space.bp_data);
+        return out_of_band_offset + (pos - space.bp_data);
       }
     };
 
@@ -823,7 +823,7 @@ struct error_code;
       return contiguous_appender(*this, len, deep);
     }
 
-    class contiguous_filler {
+    class contiguous_filler { // 用于 encode 时，为元数据预留空间
       friend buffer::list;
       char* pos;
 
@@ -831,11 +831,11 @@ struct error_code;
 
     public:
       void advance(const unsigned len) {
-	pos += len;
+        pos += len;
       }
       void copy_in(const unsigned len, const char* const src) {
-	memcpy(pos, src, len);
-	advance(len);
+        memcpy(pos, src, len);
+        advance(len);
       }
       char* c_str() {
         return pos;
@@ -852,57 +852,57 @@ struct error_code;
 
       page_aligned_appender(list *l, unsigned min_pages)
 	: bl(*l),
-	  min_alloc(min_pages * CEPH_PAGE_SIZE) {
+	  min_alloc(min_pages * CEPH_PAGE_SIZE) { // page 数乘以 page size
       }
 
       void _refill(size_t len);
 
       template <class Func>
       void _append_common(size_t len, Func&& impl_f) {
-	const auto free_in_last = bl.get_append_buffer_unused_tail_length();
-	const auto first_round = std::min(len, free_in_last);
-	if (first_round) {
-	  impl_f(first_round);
-	}
-	if (const auto second_round = len - first_round; second_round) {
-	  _refill(second_round);
-	  impl_f(second_round);
-	}
+        const auto free_in_last = bl.get_append_buffer_unused_tail_length();
+        const auto first_round = std::min(len, free_in_last); // 先将数据存储在剩余空间
+        if (first_round) {
+          impl_f(first_round);
+        }
+        if (const auto second_round = len - first_round; second_round) {
+          _refill(second_round);
+          impl_f(second_round);
+        }
       }
 
       friend class list;
 
     public:
       void append(const bufferlist& l) {
-	bl.append(l);
-	bl.obtain_contiguous_space(0);
+        bl.append(l);
+        bl.obtain_contiguous_space(0);
       }
 
       void append(const char* buf, size_t entire_len) {
-	 _append_common(entire_len,
-			[buf, this] (const size_t chunk_len) mutable {
-	  bl.append(buf, chunk_len);
-	  buf += chunk_len;
-	});
+         _append_common(entire_len,
+                [buf, this] (const size_t chunk_len) mutable {
+          bl.append(buf, chunk_len);
+          buf += chunk_len;
+        });
       }
 
       void append_zero(size_t entire_len) {
-	_append_common(entire_len, [this] (const size_t chunk_len) {
-	  bl.append_zero(chunk_len);
-	});
+        _append_common(entire_len, [this] (const size_t chunk_len) {
+          bl.append_zero(chunk_len);
+        });
       }
 
       void substr_of(const list& bl, unsigned off, unsigned len) {
-	for (const auto& bptr : bl.buffers()) {
-	  if (off >= bptr.length()) {
-	    off -= bptr.length();
-	    continue;
-	  }
-	  const auto round_size = std::min(bptr.length() - off, len);
-	  append(bptr.c_str() + off, round_size);
-	  len -= round_size;
-	  off = 0;
-	}
+        for (const auto& bptr : bl.buffers()) {
+          if (off >= bptr.length()) {
+            off -= bptr.length();
+            continue;
+          }
+          const auto round_size = std::min(bptr.length() - off, len);
+          append(bptr.c_str() + off, round_size);
+          len -= round_size;
+          off = 0;
+        }
       }
     };
 
@@ -914,7 +914,7 @@ struct error_code;
     // always_empty_bptr has no underlying raw but its _len is always 0.
     // This is useful for e.g. get_append_buffer_unused_tail_length() as
     // it allows to avoid conditionals on hot paths.
-    static ptr_node always_empty_bptr;
+    static ptr_node always_empty_bptr; // 初始化_carriage
     ptr_node& refill_append_space(const unsigned len);
 
     // for page_aligned_appender; never ever expose this publicly!
@@ -986,7 +986,7 @@ struct error_code;
     void try_assign_to_mempool(int pool);
 
     size_t get_append_buffer_unused_tail_length() const {
-      return _carriage->unused_tail_length();
+      return _carriage->unused_tail_length(); // _carriage的剩余空间
     }
 
     const buffers_t& buffers() const { return _buffers; }

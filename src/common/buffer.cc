@@ -160,7 +160,7 @@ static ceph::spinlock debug_lock;
   public:
     MEMPOOL_CLASS_HELPERS();
 
-    raw_posix_aligned(unsigned l, unsigned _align) : raw(l) {
+    raw_posix_aligned(unsigned l, unsigned _align) : raw(l) { // l 为 len
       // posix_memalign() requires a multiple of sizeof(void *)
       align = std::max<unsigned>(_align, sizeof(void *));
 #ifdef DARWIN
@@ -407,10 +407,10 @@ static ceph::spinlock debug_lock;
   buffer::ptr& buffer::ptr::operator= (const ptr& p)
   {
     if (p._raw) {
-      p._raw->nref++;
+      p._raw->nref++; // 引用数+1
       bdout << "ptr " << this << " get " << _raw << bendl;
     }
-    buffer::raw *raw = p._raw; 
+    buffer::raw *raw = p._raw;
     release();
     if (raw) {
       _raw = raw;
@@ -421,7 +421,7 @@ static ceph::spinlock debug_lock;
     }
     return *this;
   }
-  buffer::ptr& buffer::ptr::operator= (ptr&& p) noexcept
+  buffer::ptr& buffer::ptr::operator= (ptr&& p) noexcept // move 操作
   {
     release();
     buffer::raw *raw = p._raw;
@@ -462,7 +462,7 @@ static ceph::spinlock debug_lock;
     //
     // cache the pointer to avoid unncecessary reloads and repeated
     // checks.
-    if (auto* const cached_raw = std::exchange(_raw, nullptr);
+    if (auto* const cached_raw = std::exchange(_raw, nullptr); // 右边替换左边，返回左边的初值
 	cached_raw) {
       bdout << "ptr " << this << " release " << cached_raw << bendl;
       // optimize the common case where a particular `buffer::raw` has
@@ -544,7 +544,7 @@ static ceph::spinlock debug_lock;
     ceph_assert(_raw);
     if (o+l > _len)
         throw end_of_buffer();
-    char* src =  _raw->get_data() + _off + o;
+    char* src =  _raw->get_data() + _off + o; // ? 不确定，首先根据 ptr 在 raw 中的偏移量找到 ptr 所对应的 raw 的起始位置，然后加上偏移量 o, 即为需要拷贝的数据的起始位置
     maybe_inline_memcpy(dest, src, l, 8);
   }
 
@@ -559,7 +559,7 @@ static ceph::spinlock debug_lock;
     if (l) {
       int r = memcmp(c_str(), o.c_str(), l);
       if (r)
-	return r;
+        return r;
     }
     if (_len < o._len)
       return -1;
@@ -586,7 +586,7 @@ static ceph::spinlock debug_lock;
   unsigned buffer::ptr::append(const char *p, unsigned l)
   {
     ceph_assert(_raw);
-    ceph_assert(l <= unused_tail_length());
+    ceph_assert(l <= unused_tail_length()); // 只有当ptr对应的raw区域后方有空闲空间的时候，才能append成功
     char* c = _raw->get_data() + _off + _len;
     maybe_inline_memcpy(c, p, l, 32);
     _len += l;
@@ -747,7 +747,7 @@ static ceph::spinlock debug_lock;
     if (p == ls->end()) seek(off);
     while (len > 0) {
       if (p == ls->end())
-	throw end_of_buffer();
+        throw end_of_buffer();
 
       unsigned howmuch = p->length() - p_off;
       if (len < howmuch) howmuch = len;
@@ -755,7 +755,7 @@ static ceph::spinlock debug_lock;
       dest += howmuch;
 
       len -= howmuch;
-      *this += howmuch;
+      *this += howmuch; // 定位下一次需要读取的数据位置
     }
   }
 
@@ -1343,8 +1343,8 @@ static ceph::spinlock debug_lock;
       // claim_append.
       if (unlikely(_carriage != &_buffers.back())) {
         auto bptr = ptr_node::create(*_carriage, _carriage->length(), 0);
-	_carriage = bptr.get();
-	_buffers.push_back(*bptr.release());
+        _carriage = bptr.get();
+        _buffers.push_back(*bptr.release());
         _num += 1;
       }
       _carriage->append(data, first_round);
@@ -1368,9 +1368,9 @@ static ceph::spinlock debug_lock;
     // the list, so append_buffer will already be allocated.
     // OTOH if everything is new-style, we *should* allocate
     // only what we need and conserve memory.
-    if (unlikely(get_append_buffer_unused_tail_length() < len)) {
+    if (unlikely(get_append_buffer_unused_tail_length() < len)) { // 判断当前_carriage剩余空间是否满足需求
       auto new_back = \
-	buffer::ptr_node::create(buffer::create(len)).release();
+        buffer::ptr_node::create(buffer::create(len)).release(); // 新建缓冲区
       new_back->set_length(0);   // unused, so far.
       _buffers.push_back(*new_back);
       _num += 1;
@@ -1380,8 +1380,8 @@ static ceph::spinlock debug_lock;
       ceph_assert(!_buffers.empty());
       if (unlikely(_carriage != &_buffers.back())) {
         auto bptr = ptr_node::create(*_carriage, _carriage->length(), 0);
-	_carriage = bptr.get();
-	_buffers.push_back(*bptr.release());
+        _carriage = bptr.get();
+        _buffers.push_back(*bptr.release());
         _num += 1;
       }
       return { _carriage->end_c_str(), &_carriage->_len, &_len };
