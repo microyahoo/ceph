@@ -41,7 +41,7 @@ int rgw_init_ioctx(const DoutPrefixProvider *dpp,
 		   bool mostly_omap)
 {
   int r = rados->ioctx_create(pool.name.c_str(), ioctx);
-  if (r == -ENOENT && create) {
+  if (r == -ENOENT && create) { // 如果 pool 不存在则创建
     r = rados->pool_create(pool.name.c_str());
     if (r == -ERANGE) {
       ldpp_dout(dpp, 0)
@@ -60,7 +60,7 @@ int rgw_init_ioctx(const DoutPrefixProvider *dpp,
       return r;
     }
 
-    r = ioctx.application_enable(pg_pool_t::APPLICATION_NAME_RGW, false);
+    r = ioctx.application_enable(pg_pool_t::APPLICATION_NAME_RGW, false); // 为 pool 打上 rgw 的 application tag
     if (r < 0 && r != -EOPNOTSUPP) {
       return r;
     }
@@ -93,7 +93,7 @@ int rgw_init_ioctx(const DoutPrefixProvider *dpp,
   } else if (r < 0) {
     return r;
   }
-  if (!pool.ns.empty()) {
+  if (!pool.ns.empty()) { // 如果 pool 的命名空间不为空，则为 ioctx 设置命名空间
     ioctx.set_namespace(pool.ns);
   }
   return 0;

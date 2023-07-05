@@ -26,12 +26,12 @@ namespace rgw::putobj {
 
 int HeadObjectProcessor::process(bufferlist&& data, uint64_t logical_offset)
 {
-  const bool flush = (data.length() == 0);
+  const bool flush = (data.length() == 0); // 数据读取完成执行 flush 操作
 
   // capture the first chunk for special handling
   if (data_offset < head_chunk_size || data_offset == 0) {
     if (flush) {
-      // flush partial chunk
+      // flush partial chunk  数据不足一个 chunk
       return process_first_chunk(std::move(head_data), &processor);
     }
 
@@ -43,7 +43,7 @@ int HeadObjectProcessor::process(bufferlist&& data, uint64_t logical_offset)
     if (data_offset == head_chunk_size) {
       // process the first complete chunk
       ceph_assert(head_data.length() == head_chunk_size);
-      int r = process_first_chunk(std::move(head_data), &processor);
+      int r = process_first_chunk(std::move(head_data), &processor); // 这里会设置 processor，
       if (r < 0) {
         return r;
       }
@@ -55,9 +55,9 @@ int HeadObjectProcessor::process(bufferlist&& data, uint64_t logical_offset)
   ceph_assert(processor); // process_first_chunk() must initialize
 
   // send everything else through the processor
-  auto write_offset = data_offset;
-  data_offset += data.length();
-  return processor->process(std::move(data), write_offset);
+  auto write_offset = data_offset; // 写偏移量
+  data_offset += data.length(); // 数据偏移量
+  return processor->process(std::move(data), write_offset); // 剩余的都由其他 processor 以 pipe 形式进行处理, StripeProcessor::process -> ChunkProcessor::process -> RadosWriter::process。StripeProcessor 会首先进行处理 src/rgw/rgw_putobj.cc
 }
 
 
@@ -65,7 +65,7 @@ static int process_completed(const AioResultList& completed, RawObjSet *written)
 {
   std::optional<int> error;
   for (auto& r : completed) {
-    if (r.result >= 0) {
+    if (r.result >= 0) { // 处理已完成的 io，将其加入 written set
       written->insert(r.obj.get_ref().obj);
     } else if (!error) { // record first error code
       error = r.result;
@@ -93,7 +93,7 @@ int RadosWriter::process(bufferlist&& bl, uint64_t offset)
     return 0;
   }
   librados::ObjectWriteOperation op;
-  if (offset == 0) {
+  if (offset == 0) {  // 将数据封装成 op
     op.write_full(data);
   } else {
     op.write(offset, data);
@@ -239,7 +239,7 @@ int AtomicObjectProcessor::prepare(optional_yield y)
   }
 
   uint64_t stripe_size;
-  const uint64_t default_stripe_size = store->ctx()->_conf->rgw_obj_stripe_size;
+  const uint64_t default_stripe_size = store->ctx()->_conf->rgw_obj_stripe_size; // 默认 4M
 
   head_obj->get_max_aligned_size(default_stripe_size, alignment, &stripe_size);
 
@@ -367,12 +367,12 @@ int MultipartObjectProcessor::process_first_chunk(bufferlist&& data,
 
 int MultipartObjectProcessor::prepare_head()
 {
-  const uint64_t default_stripe_size = store->ctx()->_conf->rgw_obj_stripe_size;
+  const uint64_t default_stripe_size = store->ctx()->_conf->rgw_obj_stripe_size; // 默认 4M
   uint64_t chunk_size;
   uint64_t stripe_size;
   uint64_t alignment;
 
-  int r = target_obj->get_max_chunk_size(dpp, tail_placement_rule, &chunk_size, &alignment);
+  int r = target_obj->get_max_chunk_size(dpp, tail_placement_rule, &chunk_size, &alignment); // src/rgw/rgw_sal_rados.cc
   if (r < 0) {
     ldpp_dout(dpp, 0) << "ERROR: unexpected: get_max_chunk_size(): placement_rule=" << tail_placement_rule.to_str() << " obj=" << target_obj << " returned r=" << r << dendl;
     return r;
@@ -391,7 +391,7 @@ int MultipartObjectProcessor::prepare_head()
   }
 
   rgw_raw_obj stripe_obj = manifest_gen.get_cur_obj(store);
-  head_obj->raw_obj_to_obj(stripe_obj);
+  head_obj->raw_obj_to_obj(stripe_obj); // src/rgw/rgw_sal_rados.cc
   head_obj->set_hash_source(target_obj->get_name());
 
   // point part uploads at the part head instead of the final multipart head
@@ -404,14 +404,14 @@ int MultipartObjectProcessor::prepare_head()
   stripe_size = manifest_gen.cur_stripe_max_size();
   set_head_chunk_size(stripe_size);
 
-  chunk = ChunkProcessor(&writer, chunk_size);
-  stripe = StripeProcessor(&chunk, this, stripe_size);
+  chunk = ChunkProcessor(&writer, chunk_size); // 设置 chunk processor
+  stripe = StripeProcessor(&chunk, this, stripe_size); // 设置 stripe processor
   return 0;
 }
 
 int MultipartObjectProcessor::prepare(optional_yield y)
 {
-  manifest.set_prefix(target_obj->get_name() + "." + upload_id);
+  manifest.set_prefix(target_obj->get_name() + "." + upload_id); // 设置前缀，例如 name: 17M, upload_id: 2~fvyI62XUK6ttJlvMmEnMcFDOA4O0gzQ
 
   return prepare_head();
 }
@@ -438,7 +438,7 @@ int MultipartObjectProcessor::complete(size_t accounted_size,
     return r;
   }
 
-  std::unique_ptr<rgw::sal::RGWObject::WriteOp> obj_op = head_obj->get_write_op(&obj_ctx);
+  std::unique_ptr<rgw::sal::RGWObject::WriteOp> obj_op = head_obj->get_write_op(&obj_ctx); // src/rgw/rgw_sal_rados.cc
 
   obj_op->params.versioning_disabled = true;
   obj_op->params.set_mtime = set_mtime;
@@ -454,7 +454,7 @@ int MultipartObjectProcessor::complete(size_t accounted_size,
     return r;
   }
 
-  r = obj_op->write_meta(dpp, actual_size, accounted_size, y);
+  r = obj_op->write_meta(dpp, actual_size, accounted_size, y); // src/rgw/rgw_sal_rados.cc
   if (r < 0)
     return r;
 

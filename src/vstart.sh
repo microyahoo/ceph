@@ -1310,6 +1310,7 @@ if [ $CEPH_NUM_MON -gt 0 ]; then
 [global]
 osd_pool_default_size = $OSD_POOL_DEFAULT_SIZE
 osd_pool_default_min_size = 1
+ms_inject_socket_failures = 200
 
 [mon]
 mon_osd_reporter_subtree_level = osd

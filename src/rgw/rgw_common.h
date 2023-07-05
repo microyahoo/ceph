@@ -1269,7 +1269,7 @@ struct rgw_obj_key {
       }
       return string("_") + name;
     };
-
+     // 如果 namespace 不为空，格式为: _<namespace>_<obj_key_name>
     char buf[ns.size() + 16];
     snprintf(buf, sizeof(buf), "_%s_", ns.c_str());
     return string(buf) + name;
@@ -1357,7 +1357,7 @@ struct rgw_obj_key {
 
   // takes an oid and parses out the namespace (ns), name, and
   // instance
-  static bool parse_raw_oid(const string& oid, rgw_obj_key *key) {
+  static bool parse_raw_oid(const string& oid, rgw_obj_key *key) { // 例如 oid = "_multipart_17M.2~F0cIhW4n1t2YGvBG2R-jeGHBJBiluvY.1"
     key->instance.clear();
     key->ns.clear();
     if (oid[0] != '_') {
@@ -1377,10 +1377,10 @@ struct rgw_obj_key {
     if (pos == string::npos)
       return false;
 
-    key->ns = oid.substr(1, pos - 1);
+    key->ns = oid.substr(1, pos - 1); // 例如 multipart
     parse_ns_field(key->ns, key->instance);
 
-    key->name = oid.substr(pos + 1);
+    key->name = oid.substr(pos + 1); // 例如 17M.2~F0cIhW4n1t2YGvBG2R-jeGHBJBiluvY.1
     return true;
   }
 

@@ -2432,7 +2432,7 @@ int RGWPutObj_ObjStore_S3::get_params(optional_yield y)
     ret = -ERR_INVALID_REQUEST;
     return ret;
   }
-  multipart_upload_id = s->info.args.get("uploadId");
+  multipart_upload_id = s->info.args.get("uploadId"); // 分段上传 id
   multipart_part_str = s->info.args.get("partNumber");
   if (!multipart_part_str.empty()) {
     string err;
@@ -4543,7 +4543,7 @@ RGWOp *RGWHandler_REST_Obj_S3::op_head()
   return get_obj_op(false);
 }
 
-RGWOp *RGWHandler_REST_Obj_S3::op_put()
+RGWOp *RGWHandler_REST_Obj_S3::op_put() // op put
 {
   if (is_acl_op()) {
     return new RGWPutACLs_ObjStore_S3;
@@ -4921,7 +4921,7 @@ RGWHandler_REST* RGWRESTMgr_S3::get_handler(rgw::sal::RGWRadosStore *store,
     } else if (rgw::sal::RGWObject::empty(s->object.get())) {
       handler = new RGWHandler_REST_Bucket_S3(auth_registry, enable_pubsub);
     } else {
-      handler = new RGWHandler_REST_Obj_S3(auth_registry);
+      handler = new RGWHandler_REST_Obj_S3(auth_registry); // s3 obj handler
     }
   }
 

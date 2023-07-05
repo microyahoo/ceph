@@ -340,7 +340,7 @@ static int get_obj_head(const DoutPrefixProvider *dpp,
   std::unique_ptr<rgw::sal::RGWObject::ReadOp> read_op = obj->get_read_op(s->obj_ctx);
   obj->set_prefetch_data(s->obj_ctx);
 
-  int ret = read_op->prepare(s->yield, dpp);
+  int ret = read_op->prepare(s->yield, dpp); // src/rgw/rgw_rados.cc
   if (ret < 0) {
     return ret;
   }
@@ -3792,7 +3792,7 @@ int RGWPutObj::verify_permission(optional_yield y)
 }
 
 
-void RGWPutObj::pre_exec()
+void RGWPutObj::pre_exec() // rgw put obj 预处理
 {
   rgw_bucket_object_pre_exec(s);
 }
@@ -3974,7 +3974,7 @@ void RGWPutObj::execute(optional_yield y)
 
   if (!chunked_upload) { /* with chunked upload we don't know how big is the upload.
                             we also check sizes at the end anyway */
-    op_ret = s->bucket->check_quota(user_quota, bucket_quota, s->content_length, y);
+    op_ret = s->bucket->check_quota(user_quota, bucket_quota, s->content_length, y); // 检查 quota src/rgw/rgw_sal_rados.cc
     if (op_ret < 0) {
       ldpp_dout(this, 20) << "check_quota() returned ret=" << op_ret << dendl;
       return;
@@ -4008,7 +4008,7 @@ void RGWPutObj::execute(optional_yield y)
   }
 
   // create the object processor
-  auto aio = rgw::make_throttle(s->cct->_conf->rgw_put_obj_min_window_size,
+  auto aio = rgw::make_throttle(s->cct->_conf->rgw_put_obj_min_window_size, // 默认值 16M
                                 s->yield);
   using namespace rgw::putobj;
   constexpr auto max_processor_size = std::max({sizeof(MultipartObjectProcessor),
@@ -4064,7 +4064,7 @@ void RGWPutObj::execute(optional_yield y)
 	olh_epoch, s->req_id, this, s->yield);
   }
 
-  op_ret = processor->prepare(s->yield);
+  op_ret = processor->prepare(s->yield); // src/rgw/rgw_putobj_processor.cc
   if (op_ret < 0) {
     ldpp_dout(this, 20) << "processor->prepare() returned ret=" << op_ret
 		      << dendl;
@@ -4131,7 +4131,7 @@ void RGWPutObj::execute(optional_yield y)
     if (fst > lst)
       break;
     if (copy_source.empty()) {
-      len = get_data(data);
+      len = get_data(data); // 从 rest body 中读取数据 src/rgw/rgw_rest_s3.cc, 以 s3cmd 上传为例，默认当大于 15M 时会进行分段
     } else {
       uint64_t cur_lst = min(fst + s->cct->_conf->rgw_max_chunk_size - 1, lst);
       op_ret = get_data(fst, cur_lst, data);
@@ -4156,7 +4156,7 @@ void RGWPutObj::execute(optional_yield y)
     /* update torrrent */
     torrent.update(data);
 
-    op_ret = filter->process(std::move(data), ofs);
+    op_ret = filter->process(std::move(data), ofs); // 以分段上传为例 src/rgw/rgw_putobj_processor.cc HeadObjectProcessor::process
     if (op_ret < 0) {
       ldpp_dout(this, 20) << "processor->process() returned ret="
           << op_ret << dendl;
@@ -4272,7 +4272,7 @@ void RGWPutObj::execute(optional_yield y)
   }
 
   tracepoint(rgw_op, processor_complete_enter, s->req_id.c_str());
-  op_ret = processor->complete(s->obj_size, etag, &mtime, real_time(), attrs,
+  op_ret = processor->complete(s->obj_size, etag, &mtime, real_time(), attrs, // src/rgw/rgw_putobj_processor.cc
                                (delete_at ? *delete_at : real_time()), if_match, if_nomatch,
                                (user_data.empty() ? nullptr : &user_data), nullptr, nullptr,
                                s->yield);

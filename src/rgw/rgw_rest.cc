@@ -1034,10 +1034,10 @@ int RGWPutObj_ObjStore::get_params(optional_yield y)
 int RGWPutObj_ObjStore::get_data(bufferlist& bl)
 {
   size_t cl;
-  uint64_t chunk_size = s->cct->_conf->rgw_max_chunk_size;
+  uint64_t chunk_size = s->cct->_conf->rgw_max_chunk_size; // chunk size 默认 4M
   if (s->length) {
     cl = atoll(s->length) - ofs;
-    if (cl > chunk_size)
+    if (cl > chunk_size) // 如果大于 chunk size，则按照 chunk size进行切分
       cl = chunk_size;
   } else {
     cl = chunk_size;
@@ -1048,7 +1048,7 @@ int RGWPutObj_ObjStore::get_data(bufferlist& bl)
     ACCOUNTING_IO(s)->set_account(true);
     bufferptr bp(cl);
 
-    const auto read_len  = recv_body(s, bp.c_str(), cl);
+    const auto read_len  = recv_body(s, bp.c_str(), cl); // 接收 rest 请求 body
     if (read_len < 0) {
       return read_len;
     }
@@ -2296,7 +2296,7 @@ RGWHandler_REST* RGWREST::get_handler(
   }
 
   RGWHandler_REST* handler = m->get_handler(store, s, auth_registry, frontend_prefix);
-  if (! handler) {
+  if (! handler) { // RGWHandler_REST_Obj_S3
     *init_error = -ERR_METHOD_NOT_ALLOWED;
     return NULL;
   }

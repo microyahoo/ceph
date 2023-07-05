@@ -222,7 +222,7 @@ int process_request(rgw::sal::RGWRadosStore* const store,
   int init_error = 0;
   bool should_log = false;
   RGWRESTMgr *mgr;
-  RGWHandler_REST *handler = rest->get_handler(store, s,
+  RGWHandler_REST *handler = rest->get_handler(store, s, // 获取 handler
                                                auth_registry,
                                                frontend_prefix,
                                                client_io, &mgr, &init_error);
@@ -237,7 +237,7 @@ int process_request(rgw::sal::RGWRadosStore* const store,
   should_log = mgr->get_logging();
 
   ldpp_dout(s, 2) << "getting op " << s->op << dendl;
-  op = handler->get_op();
+  op = handler->get_op(); // src/rgw/rgw_rest_s3.cc 以s3 put 为例，对应的是 RGWPutObj_ObjStore_S3
   if (!op) {
     abort_early(s, NULL, -ERR_METHOD_NOT_ALLOWED, handler, yield);
     goto done;

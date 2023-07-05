@@ -277,7 +277,7 @@ void cls_rgw_bucket_prepare_op(ObjectWriteOperation& o, RGWModifyOp op, string& 
   call.zones_trace = zones_trace;
   bufferlist in;
   encode(call, in);
-  o.exec(RGW_CLASS, RGW_BUCKET_PREPARE_OP, in);
+  o.exec(RGW_CLASS, RGW_BUCKET_PREPARE_OP, in); // src/cls/rgw/cls_rgw.cc
 }
 
 void cls_rgw_bucket_complete_op(ObjectWriteOperation& o, RGWModifyOp op, string& tag,
@@ -304,7 +304,7 @@ void cls_rgw_bucket_complete_op(ObjectWriteOperation& o, RGWModifyOp op, string&
     call.zones_trace = *zones_trace;
   }
   encode(call, in);
-  o.exec(RGW_CLASS, RGW_BUCKET_COMPLETE_OP, in);
+  o.exec(RGW_CLASS, RGW_BUCKET_COMPLETE_OP, in); // src/cls/rgw/cls_rgw.cc rgw_bucket_complete_op
 }
 
 void cls_rgw_bucket_list_op(librados::ObjectReadOperation& op,

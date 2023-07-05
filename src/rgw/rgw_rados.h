@@ -60,7 +60,7 @@ class RGWSysObjectCtx;
 #define RGW_OBJ_NS_SHADOW    "shadow"
 
 static inline void prepend_bucket_marker(const rgw_bucket& bucket, const string& orig_oid, string& oid)
-{
+{ // 设置 oid，<bucket.marker>_<oid>, 例如 5052d818-1167-4317-9c9f-ead6970e16ed.4333.1__shadow_17M.URKLx0iM01Fqq2JxjM2fhf79JMLvUMaC.1_1
   if (bucket.marker.empty() || orig_oid.empty()) {
     oid = orig_oid;
   } else {
@@ -172,7 +172,7 @@ struct RGWObjState {
   bufferlist data;
   bool prefetch_data{false};
   bool keep_tail{false};
-  bool is_olh{false};
+  bool is_olh{false}; // object logical head
   bufferlist olh_tag;
   uint64_t pg_ver{false};
   uint32_t zone_short_id{0};
@@ -435,7 +435,7 @@ class RGWRados
   bool use_lc_thread;
   bool quota_threads;
   bool run_sync_thread;
-  bool run_reshard_thread;
+  bool run_reshard_thread; // 是否开启自动 reshard
 
   RGWMetaNotifier *meta_notifier;
   RGWDataNotifier *data_notifier;
@@ -508,7 +508,7 @@ protected:
 
   bool pools_initialized;
 
-  RGWQuotaHandler *quota_handler;
+  RGWQuotaHandler *quota_handler; // ? quota handler
 
   RGWCoroutinesManagerRegistry *cr_registry;
 
@@ -705,7 +705,7 @@ public:
     RGWRados *store;
     rgw_bucket bucket;
     int shard_id;
-    RGWSI_RADOS::Obj bucket_obj;
+    RGWSI_RADOS::Obj bucket_obj; // 索引池中 bucket shard 对应的对象, 格式为: .dir.<bucket_id>.<shard_id>
 
     explicit BucketShard(RGWRados *_store) : store(_store), shard_id(-1) {}
     int init(const rgw_bucket& _bucket, const rgw_obj& obj, RGWBucketInfo* out, const DoutPrefixProvider *dpp);

@@ -85,7 +85,7 @@ int RGWSI_BucketIndex_RADOS::open_bucket_index_base(const DoutPrefixProvider *dp
     return -EIO;
   }
 
-  *bucket_oid_base = dir_oid_prefix;
+  *bucket_oid_base = dir_oid_prefix; // .dir.
   bucket_oid_base->append(bucket.bucket_id);
 
   return 0;
@@ -226,9 +226,9 @@ int RGWSI_BucketIndex_RADOS::get_bucket_index_object(const string& bucket_oid_ba
           *shard_id = -1;
         }
       } else {
-        uint32_t sid = bucket_shard_index(obj_key, num_shards);
+        uint32_t sid = bucket_shard_index(obj_key, num_shards); // 根据对象名计算 hash 值，然后取模计算出对应的 shard id
         char buf[bucket_oid_base.size() + 32];
-        snprintf(buf, sizeof(buf), "%s.%d", bucket_oid_base.c_str(), sid);
+        snprintf(buf, sizeof(buf), "%s.%d", bucket_oid_base.c_str(), sid); // 格式为： .dir.<bucket_id>.<shard_id>, 例如：.dir.f08c9eaf-54ca-4794-b7c4-a13b2b6e8819.4332.1.7
         (*bucket_obj) = buf;
         if (shard_id) {
           *shard_id = (int)sid;
@@ -247,7 +247,7 @@ int RGWSI_BucketIndex_RADOS::open_bucket_index_shard(const DoutPrefixProvider *d
                                                      RGWSI_RADOS::Obj *bucket_obj,
                                                      int *shard_id)
 {
-  string bucket_oid_base;
+  string bucket_oid_base; // 格式为: .dir.<bucket_id>
 
   RGWSI_RADOS::Pool pool;
 
@@ -266,7 +266,7 @@ int RGWSI_BucketIndex_RADOS::open_bucket_index_shard(const DoutPrefixProvider *d
     ldpp_dout(dpp, 10) << "get_bucket_index_object() returned ret=" << ret << dendl;
     return ret;
   }
-
+   // 从索引池中获取指定的 oid 对象，例如: pool: default.rgw.buckets.index     oid: .dir.f08c9eaf-54ca-4794-b7c4-a13b2b6e8819.4332.1.6
   *bucket_obj = svc.rados->obj(pool, oid);
 
   return 0;

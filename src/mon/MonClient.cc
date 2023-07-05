@@ -677,7 +677,7 @@ void MonClient::_finish_auth(int auth_err)
                   << " auth returned EAGAIN, reopening the session to try again"
                   << dendl;
     _reopen_session();
-  }
+  } // FIXME: https://github.com/ceph/ceph/pull/52133
   auth_cond.notify_all();
 }
 
@@ -873,9 +873,9 @@ void MonClient::_start_hunting()
   // adjust timeouts if necessary
   if (!had_a_connection)
     return;
-  reopen_interval_multiplier *= cct->_conf->mon_client_hunt_interval_backoff;
+  reopen_interval_multiplier *= cct->_conf->mon_client_hunt_interval_backoff; // 默认值 1.5
   if (reopen_interval_multiplier >
-      cct->_conf->mon_client_hunt_interval_max_multiple) {
+      cct->_conf->mon_client_hunt_interval_max_multiple) { // 默认值 10
     reopen_interval_multiplier =
       cct->_conf->mon_client_hunt_interval_max_multiple;
   }
@@ -946,11 +946,11 @@ void MonClient::tick()
       }
     }
 
-    if (now > last_keepalive + cct->_conf->mon_client_ping_interval) {
+    if (now > last_keepalive + cct->_conf->mon_client_ping_interval) { // mon_client_ping_interval 默认值 10
       cur_con->send_keepalive();
       last_keepalive = now;
 
-      if (cct->_conf->mon_client_ping_timeout > 0 &&
+      if (cct->_conf->mon_client_ping_timeout > 0 && // 默认值 30
 	  cur_con->has_feature(CEPH_FEATURE_MSGR_KEEPALIVE2)) {
 	utime_t lk = cur_con->get_last_keepalive_ack();
 	utime_t interval = now - lk;
@@ -964,7 +964,7 @@ void MonClient::tick()
       _un_backoff();
     }
 
-    if (now > last_send_log + cct->_conf->mon_client_log_interval) {
+    if (now > last_send_log + cct->_conf->mon_client_log_interval) { // 默认值 1
       send_log();
       last_send_log = now;
     }

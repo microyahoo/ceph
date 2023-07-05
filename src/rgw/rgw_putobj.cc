@@ -84,7 +84,7 @@ int StripeProcessor::process(bufferlist&& data, uint64_t offset)
     }
     ceph_assert(stripe_size > 0);
 
-    bounds.first = offset;
+    bounds.first = offset; // 更新 bounds 上下界
     bounds.second = offset + stripe_size;
 
     max = stripe_size;

@@ -199,7 +199,7 @@ void handle_connection(boost::asio::io_context& context,
   auto cct = env.store->ctx();
 
   // read messages from the stream until eof
-  for (;;) {
+  for (;;) { // 从 stream 中读取 messages
     // configure the parser
     rgw::asio::parser_type parser;
     parser.header_limit(header_limit);
@@ -247,7 +247,7 @@ void handle_connection(boost::asio::io_context& context,
       }
 
       // process the request
-      RGWRequest req{env.store->getRados()->get_new_req_id()};
+      RGWRequest req{env.store->getRados()->get_new_req_id()}; // 生成请求 ID
 
       auto& socket = stream.lowest_layer();
       const auto& remote_endpoint = socket.remote_endpoint(ec);
@@ -450,7 +450,7 @@ class AsioFrontend {
     case dmc::scheduler_t::none:
       lderr(ctx()) << "Got invalid scheduler type for beast, defaulting to throttler" << dendl;
       [[fallthrough]];
-    case dmc::scheduler_t::throttler:
+    case dmc::scheduler_t::throttler: // 默认 throttler
       scheduler.reset(new dmc::SimpleThrottler(ctx()));
 
     }
@@ -548,7 +548,7 @@ static int drop_privileges(CephContext *ctx)
   return 0;
 }
 
-int AsioFrontend::init()
+int AsioFrontend::init() // asio frontend 初始化
 {
   boost::system::error_code ec;
   auto& config = conf->get_config_map();
@@ -629,9 +629,9 @@ int AsioFrontend::init()
     l.acceptor.open(l.endpoint.protocol(), ec);
     if (ec) {
       if (ec == boost::asio::error::address_family_not_supported) {
-	ldout(ctx(), 0) << "WARNING: cannot open socket for endpoint=" << l.endpoint
-			<< ", " << ec.message() << dendl;
-	continue;
+        ldout(ctx(), 0) << "WARNING: cannot open socket for endpoint=" << l.endpoint
+                << ", " << ec.message() << dendl;
+        continue;
       }
 
       lderr(ctx()) << "failed to open socket: " << ec.message() << dendl;
@@ -1044,7 +1044,7 @@ void AsioFrontend::accept(Listener& l, boost::system::error_code ec)
         auto c = connections.add(*conn);
         auto timeout = timeout_timer{context.get_executor(), request_timeout, conn};
         boost::system::error_code ec;
-        handle_connection(context, env, conn->socket, timeout, header_limit,
+        handle_connection(context, env, conn->socket, timeout, header_limit, // 处理连接请求 
                           conn->buffer, false, pause_mutex, scheduler.get(),
                           ec, yield);
         conn->socket.shutdown(tcp_socket::shutdown_both, ec);
@@ -1055,7 +1055,7 @@ void AsioFrontend::accept(Listener& l, boost::system::error_code ec)
 int AsioFrontend::run()
 {
   auto cct = ctx();
-  const int thread_count = cct->_conf->rgw_thread_pool_size;
+  const int thread_count = cct->_conf->rgw_thread_pool_size; // 默认值 512
   threads.reserve(thread_count);
 
   ldout(cct, 4) << "frontend spawning " << thread_count << " threads" << dendl;

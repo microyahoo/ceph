@@ -555,7 +555,7 @@ void RGWRadosObject::raw_obj_to_obj(const rgw_raw_obj& raw_obj)
 {
   rgw_obj tobj = get_obj();
   RGWSI_Tier_RADOS::raw_obj_to_obj(get_bucket()->get_key(), raw_obj, &tobj);
-  set_key(tobj.key);
+  set_key(tobj.key); // 例如 { name = "17M.2~F0cIhW4n1t2YGvBG2R-jeGHBJBiluvY.1", ns = "multipart", instance = ""}
 }
 
 void RGWRadosObject::get_raw_obj(rgw_raw_obj* raw_obj)
@@ -844,7 +844,7 @@ int RGWRadosObject::RadosWriteOp::prepare(optional_yield y)
 
 int RGWRadosObject::RadosWriteOp::write_meta(const DoutPrefixProvider *dpp, uint64_t size, uint64_t accounted_size, optional_yield y)
 {
-  int ret = parent_op.write_meta(dpp, size, accounted_size, *params.attrs, y);
+  int ret = parent_op.write_meta(dpp, size, accounted_size, *params.attrs, y); // 写元数据
   params.canceled = parent_op.meta.canceled;
 
   return ret;

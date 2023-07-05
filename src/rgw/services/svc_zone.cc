@@ -847,7 +847,7 @@ int RGWSI_Zone::convert_regionmap(const DoutPrefixProvider *dpp, optional_yield 
 
 const RGWZoneParams& RGWSI_Zone::get_zone_params() const
 {
-  return *zone_params;
+  return *zone_params; // 存储 zone 相关的参数信息，其中包括所有 pool 的相关信息
 }
 
 const RGWZone& RGWSI_Zone::get_zone() const
@@ -1183,7 +1183,7 @@ read_omap:
 
   if (ret < 0 || m.empty()) {
     vector<rgw_pool> pools;
-    string s = string("default.") + default_storage_pool_suffix;
+    string s = string("default.") + default_storage_pool_suffix; // rgw data pool
     pools.push_back(rgw_pool(s));
     vector<int> retcodes;
     bufferlist bl;

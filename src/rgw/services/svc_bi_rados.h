@@ -92,8 +92,8 @@ public:
   static uint32_t bucket_shard_index(const std::string& key,
                                      int num_shards) {
     uint32_t sid = ceph_str_hash_linux(key.c_str(), key.size());
-    uint32_t sid2 = sid ^ ((sid & 0xFF) << 24);
-    return rgw_shards_mod(sid2, num_shards);
+    uint32_t sid2 = sid ^ ((sid & 0xFF) << 24); // 根据对象名计算 hash 值
+    return rgw_shards_mod(sid2, num_shards); // 对 hash 值根据 num_shards 取模
   }
 
   int init_index(const DoutPrefixProvider *dpp, RGWBucketInfo& bucket_info);

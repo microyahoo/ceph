@@ -311,7 +311,7 @@ int RGWObjManifest::generator::create_begin(CephContext *cct, RGWObjManifest *_m
   last_ofs = 0;
 
   if (manifest->get_prefix().empty()) {
-    char buf[33];
+    char buf[33]; // 如果前缀为空，则生成随机的前缀名，格式为 .<rand_alphanumeric>_
     gen_rand_alphanumeric(cct, buf, sizeof(buf) - 1);
 
     string oid_prefix = ".";
@@ -337,7 +337,7 @@ int RGWObjManifest::generator::create_begin(CephContext *cct, RGWObjManifest *_m
   
   cur_part_id = rule.start_part_num;
 
-  manifest->get_implicit_location(cur_part_id, cur_stripe, 0, NULL, &cur_obj);
+  manifest->get_implicit_location(cur_part_id, cur_stripe, 0, NULL, &cur_obj); // 设置 cur_obj，multipart 或 shadow 
 
   // Normal object which not generated through copy operation 
   manifest->set_tail_instance(_obj.key.instance);
@@ -480,11 +480,11 @@ void RGWObjManifest::get_implicit_location(uint64_t cur_part_id, uint64_t cur_st
   } else {
     char buf[32];
     if (cur_stripe == 0) {
-      snprintf(buf, sizeof(buf), ".%d", (int)cur_part_id);
+      snprintf(buf, sizeof(buf), ".%d", (int)cur_part_id); // prefix.<part_id>
       oid += buf;
       ns= RGW_OBJ_NS_MULTIPART;
     } else {
-      snprintf(buf, sizeof(buf), ".%d_%d", (int)cur_part_id, (int)cur_stripe);
+      snprintf(buf, sizeof(buf), ".%d_%d", (int)cur_part_id, (int)cur_stripe); // prefix.<part_id>_<stripe_id>
       oid += buf;
       ns = RGW_OBJ_NS_SHADOW;
     }

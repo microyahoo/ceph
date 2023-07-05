@@ -128,7 +128,7 @@ int RGWServices_Def::init(CephContext *cct,
     }
   }
 
-  r = rados->start(y, dpp);
+  r = rados->start(y, dpp); // 启动 rados processor 线程池
   if (r < 0) {
     ldpp_dout(dpp, 0) << "ERROR: failed to start rados service (" << cpp_strerror(-r) << dendl;
     return r;
@@ -275,7 +275,7 @@ void RGWServices_Def::shutdown()
 }
 
 
-int RGWServices::do_init(CephContext *_cct, bool have_cache, bool raw, bool run_sync, optional_yield y, const DoutPrefixProvider *dpp)
+int RGWServices::do_init(CephContext *_cct, bool have_cache, bool raw, bool run_sync, optional_yield y, const DoutPrefixProvider *dpp) // rgw service instances 初始化
 {
   cct = _cct;
 

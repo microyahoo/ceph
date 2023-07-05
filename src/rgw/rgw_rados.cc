@@ -153,7 +153,7 @@ rgw_raw_obj rgw_obj_select::get_raw_obj(rgw::sal::RGWStore* store) const
 {
   if (!is_raw) {
     rgw_raw_obj r;
-    store->get_raw_obj(placement_rule, obj, &r);
+    store->get_raw_obj(placement_rule, obj, &r); // src/rgw/rgw_sal_rados.cc
     return r;
   }
   return raw_obj;
@@ -2321,17 +2321,17 @@ int RGWRados::get_obj_head_ioctx(const DoutPrefixProvider *dpp,
 				 const rgw_obj& obj,
 				 librados::IoCtx *ioctx)
 {
-  std::string oid, key;
+  std::string oid, key; // oid 格式如下：9e36213f-fd8f-49f2-836a-b1119c7788be.4341.1__multipart_17M.2~kCwJhcjxKj3upZJynX8kg9gSAVxDD4A.meta
   get_obj_bucket_and_oid_loc(obj, oid, key);
 
   rgw_pool pool;
-  if (!get_obj_data_pool(bucket_info.placement_rule, obj, &pool)) {
+  if (!get_obj_data_pool(bucket_info.placement_rule, obj, &pool)) { // pool 格式类似 default.rgw.buckets.non-ec 
     ldpp_dout(dpp, 0) << "ERROR: cannot get data pool for obj=" << obj <<
       ", probably misconfiguration" << dendl;
     return -EIO;
   }
 
-  int r = open_pool_ctx(dpp, pool, *ioctx, false);
+  int r = open_pool_ctx(dpp, pool, *ioctx, false); // 打开 pool, 获取 ioctx, 如果 pool 不存在则创建
   if (r < 0) {
     ldpp_dout(dpp, 0) << "ERROR: unable to open data-pool=" << pool.to_str() <<
       " for obj=" << obj << " with error-code=" << r << dendl;
@@ -3032,7 +3032,7 @@ int RGWRados::Object::Write::_do_write_meta(const DoutPrefixProvider *dpp,
   if (r < 0)
     return r;
 
-  bool is_olh = state->is_olh;
+  bool is_olh = state->is_olh; // object logical head
 
   bool reset_obj = (meta.flags & PUT_OBJ_CREATE) != 0;
 
@@ -3040,7 +3040,7 @@ int RGWRados::Object::Write::_do_write_meta(const DoutPrefixProvider *dpp,
   if (!ptag && !index_op->get_optag()->empty()) {
     ptag = index_op->get_optag();
   }
-  r = target->prepare_atomic_modification(dpp, op, reset_obj, ptag, meta.if_match, meta.if_nomatch, false, modify_tail, y);
+  r = target->prepare_atomic_modification(dpp, op, reset_obj, ptag, meta.if_match, meta.if_nomatch, false, modify_tail, y); // ?
   if (r < 0)
     return r;
 
@@ -3183,7 +3183,7 @@ int RGWRados::Object::Write::_do_write_meta(const DoutPrefixProvider *dpp,
   epoch = ioctx.get_last_version();
   poolid = ioctx.get_id();
 
-  r = target->complete_atomic_modification(dpp);
+  r = target->complete_atomic_modification(dpp); // ?
   if (r < 0) {
     ldpp_dout(dpp, 0) << "ERROR: complete_atomic_modification returned r=" << r << dendl;
   }
@@ -6047,7 +6047,7 @@ int RGWRados::Bucket::UpdateIndex::guard_reshard(const DoutPrefixProvider *dpp, 
 
 #define NUM_RESHARD_RETRIES 10
   for (int i = 0; i < NUM_RESHARD_RETRIES; ++i) {
-    int ret = get_bucket_shard(&bs, dpp);
+    int ret = get_bucket_shard(&bs, dpp); // 初始化并获取 bucket shard
     if (ret < 0) {
       ldpp_dout(dpp, 5) << "failed to get BucketShard object: ret=" << ret << dendl;
       return ret;
@@ -6194,7 +6194,7 @@ int RGWRados::Bucket::UpdateIndex::complete(const DoutPrefixProvider *dpp, int64
 
   ret = store->cls_obj_complete_add(*bs, obj, optag, poolid, epoch, ent, category, remove_objs, bilog_flags, zones_trace);
 
-  int r = store->svc.datalog_rados->add_entry(dpp, target->bucket_info, bs->shard_id);
+  int r = store->svc.datalog_rados->add_entry(dpp, target->bucket_info, bs->shard_id); // 往 rgw log pool 对应的 data_log 条目中增加 log
   if (r < 0) {
     ldpp_dout(dpp, -1) << "ERROR: failed writing data log" << dendl;
   }
@@ -8448,7 +8448,8 @@ int RGWRados::cls_obj_prepare_op(const DoutPrefixProvider *dpp, BucketShard& bs,
   ObjectWriteOperation o;
   o.assert_exists(); // bucket index shard must exist
 
-  cls_rgw_obj_key key(obj.key.get_index_key_name(), obj.key.instance);
+/* (gdb) p obj.key  $26 = { name = "17M.2~9KRWRyfrvNdSvF6t35BARQBQ6Huln44.meta", instance = "", ns = "multipart"} */
+  cls_rgw_obj_key key(obj.key.get_index_key_name(), obj.key.instance);// key name 格式为： _<ns>_<name> 或 _<name> 或 name
   cls_rgw_guard_bucket_resharding(o, -ERR_BUSY_RESHARDING);
   cls_rgw_bucket_prepare_op(o, op, tag, key, obj.key.get_loc(), svc.zone->get_zone().log_data, bilog_flags, zones_trace);
   return bs.bucket_obj.operate(dpp, &o, y);
@@ -9429,7 +9430,7 @@ int RGWRados::check_quota(const rgw_user& bucket_owner, rgw_bucket& bucket,
   if(check_size_only)
     return quota_handler->check_quota(bucket_owner, bucket, user_quota, bucket_quota, 0, obj_size, y);
 
-  return quota_handler->check_quota(bucket_owner, bucket, user_quota, bucket_quota, 1, obj_size, y);
+  return quota_handler->check_quota(bucket_owner, bucket, user_quota, bucket_quota, 1, obj_size, y); // src/rgw/rgw_quota.cc
 }
 
 int RGWRados::get_target_shard_id(const rgw::bucket_index_normal_layout& layout, const string& obj_key,

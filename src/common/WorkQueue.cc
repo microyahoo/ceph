@@ -107,7 +107,7 @@ void ThreadPool::worker(WorkThread *wt)
       while (tries--) {
 	next_work_queue %= work_queues.size();
 	wq = work_queues[next_work_queue++];
-	
+
 	void *item = wq->_void_dequeue();
 	if (item) {
 	  processing++;

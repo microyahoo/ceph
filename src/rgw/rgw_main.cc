@@ -335,9 +335,9 @@ int radosgw_Main(int argc, const char **argv)
 
   rgw_init_resolver();
   rgw::curl::setup_curl(fe_map);
-  rgw_http_client_init(g_ceph_context);
+  rgw_http_client_init(g_ceph_context); // 启动 rgw http manager
   rgw_kmip_client_init(*new RGWKMIPManagerImpl(g_ceph_context));
-  
+
 #if defined(WITH_RADOSGW_FCGI_FRONTEND)
   FCGX_Init();
 #endif
@@ -345,12 +345,12 @@ int radosgw_Main(int argc, const char **argv)
   const DoutPrefix dp(cct.get(), dout_subsys, "rgw main: ");
   rgw::sal::RGWRadosStore *store =
     RGWStoreManager::get_storage(&dp, g_ceph_context,
-				 g_conf()->rgw_enable_gc_threads,
-				 g_conf()->rgw_enable_lc_threads,
-				 g_conf()->rgw_enable_quota_threads,
-				 g_conf()->rgw_run_sync_thread,
-				 g_conf().get_val<bool>("rgw_dynamic_resharding"),
-				 g_conf()->rgw_cache_enabled);
+				 g_conf()->rgw_enable_gc_threads, // 默认 true
+				 g_conf()->rgw_enable_lc_threads, // 默认 true
+				 g_conf()->rgw_enable_quota_threads, // 默认 true
+				 g_conf()->rgw_run_sync_thread, // 默认 true
+				 g_conf().get_val<bool>("rgw_dynamic_resharding"), // 默认 true，建议关闭
+				 g_conf()->rgw_cache_enabled); // 默认 true
   if (!store) {
     mutex.lock();
     init_timer.cancel_all_events();
@@ -478,7 +478,7 @@ int radosgw_Main(int argc, const char **argv)
                set_logging(new RGWRESTMgr_SWIFT_Auth));
   }
 
-  if (apis_map.count("admin") > 0) {
+  if (apis_map.count("admin") > 0) { // 注册 resource
     RGWRESTMgr_Admin *admin_resource = new RGWRESTMgr_Admin;
     admin_resource->register_resource("usage", new RGWRESTMgr_Usage);
     admin_resource->register_resource("user", new RGWRESTMgr_User);
@@ -603,7 +603,7 @@ int radosgw_Main(int argc, const char **argv)
       std::string uri_prefix;
       config->get_val("prefix", "", &uri_prefix);
       RGWProcessEnv env{ store, &rest, olog, port, uri_prefix, auth_registry };
-      fe = new RGWAsioFrontend(env, config, sched_ctx);
+      fe = new RGWAsioFrontend(env, config, sched_ctx); // asio frontend
     }
 #endif /* WITH_RADOSGW_BEAST_FRONTEND */
 #if defined(WITH_RADOSGW_FCGI_FRONTEND)
@@ -626,7 +626,7 @@ int radosgw_Main(int argc, const char **argv)
     }
 
     dout(0) << "starting handler: " << fiter->first << dendl;
-    int r = fe->init();
+    int r = fe->init(); // 调用 AsioFrontend::init()，启动监听
     if (r < 0) {
       derr << "ERROR: failed initializing frontend" << dendl;
       return -r;

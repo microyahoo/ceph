@@ -21,7 +21,7 @@ RGWSI_RADOS::~RGWSI_RADOS()
 {
 }
 
-int RGWSI_RADOS::do_start(optional_yield, const DoutPrefixProvider *dpp)
+int RGWSI_RADOS::do_start(optional_yield, const DoutPrefixProvider *dpp) // 连接 rados 并启动 async rados processor 线程池
 {
   int ret = rados.init_with_context(cct);
   if (ret < 0) {
@@ -32,7 +32,7 @@ int RGWSI_RADOS::do_start(optional_yield, const DoutPrefixProvider *dpp)
     return ret;
   }
 
-  async_processor.reset(new RGWAsyncRadosProcessor(cct, cct->_conf->rgw_num_async_rados_threads));
+  async_processor.reset(new RGWAsyncRadosProcessor(cct, cct->_conf->rgw_num_async_rados_threads)); // 默认值 32
   async_processor->start();
 
   return 0;
@@ -295,7 +295,7 @@ int RGWSI_RADOS::Pool::lookup()
 
 int RGWSI_RADOS::Pool::open(const DoutPrefixProvider *dpp, const OpenParams& params)
 {
-  return rados_svc->open_pool_ctx(dpp, pool, state.ioctx, params);
+  return rados_svc->open_pool_ctx(dpp, pool, state.ioctx, params); // 设置 state.ioctx
 }
 
 int RGWSI_RADOS::Pool::List::init(const DoutPrefixProvider *dpp, const string& marker, RGWAccessListFilter *filter)
