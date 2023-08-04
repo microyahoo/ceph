@@ -36,7 +36,7 @@ CEPH_CLS_API void __cls_init()
 /**
  * Initialize a class.
  */
-void __cls_init();
+void __cls_init(); // 插件的入口函数
 
 /**
  * @typdef cls_handle_t

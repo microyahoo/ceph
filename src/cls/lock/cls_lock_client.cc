@@ -35,8 +35,8 @@ namespace rados {
                 const std::string& description,
                 const utime_t& duration, uint8_t flags)
       {
-        cls_lock_lock_op op;
-        op.name = name;
+        cls_lock_lock_op op; // 插件自己的 op
+        op.name = name; // 初始化插件自定义的操作
         op.type = type;
         op.cookie = cookie;
         op.tag = tag;
@@ -44,8 +44,8 @@ namespace rados {
         op.duration = duration;
         op.flags = flags;
         bufferlist in;
-        encode(op, in);
-        rados_op->exec("lock", "lock", in);
+        encode(op, in); // 将插件的 op 封装到 bufferlist，作为输入参数
+        rados_op->exec("lock", "lock", in); // src/cls/lock/cls_lock.cc
       }
 
       int lock(IoCtx *ioctx,
@@ -55,9 +55,9 @@ namespace rados {
                const std::string& description, const utime_t& duration,
 	       uint8_t flags)
       {
-        ObjectWriteOperation op;
+        ObjectWriteOperation op; // 对 rados 层来说，这是一个写操作
         lock(&op, name, type, cookie, tag, description, duration, flags);
-        return ioctx->operate(oid, &op); // ? 加锁
+        return ioctx->operate(oid, &op); // 将写操作发送出去 src/osdc/Objecter.cc
       }
 
       void unlock(ObjectWriteOperation *rados_op,

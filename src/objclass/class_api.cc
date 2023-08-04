@@ -30,7 +30,7 @@ void cls_free(void *p)
 int cls_register(const char *name, cls_handle_t *handle)
 {
   ClassHandler::ClassData *cls = \
-    ClassHandler::get_instance().register_class(name);
+    ClassHandler::get_instance().register_class(name); // 注册插件
   *handle = (cls_handle_t)cls;
   return (cls != NULL);
 }
@@ -55,7 +55,7 @@ int cls_register_method(cls_handle_t hclass, const char *method,
   return (hmethod != NULL);
 }
 
-int cls_register_cxx_method(cls_handle_t hclass, const char *method,
+int cls_register_cxx_method(cls_handle_t hclass, const char *method, // 注册 C++ 函数
                             int flags,
 			    cls_method_cxx_call_t class_call, cls_method_handle_t *handle)
 {

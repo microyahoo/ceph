@@ -3685,7 +3685,7 @@ int OSD::init()
   }
 
   if (cct->_conf->osd_open_classes_on_start) {
-    int r = ClassHandler::get_instance().open_all_classes();
+    int r = ClassHandler::get_instance().open_all_classes(); // 去 osd class 目录下遍历所有的 libcls_xxx.so, 然后加载
     if (r)
       dout(1) << "warning: got an error loading one or more classes: " << cpp_strerror(r) << dendl;
   }

@@ -5810,7 +5810,7 @@ int PrimaryLogPG::do_sparse_read(OpContext *ctx, OSDOp& osd_op) {
   return 0;
 }
 
-int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
+int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops) // 处理 osd ops
 {
   int result = 0;
   SnapSetContext *ssc = ctx->obc->ssc;
@@ -5992,7 +5992,7 @@ int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
       }
       break;
 
-    case CEPH_OSD_OP_CALL:
+    case CEPH_OSD_OP_CALL: // 如果 op 类型为 CEPH_OSD_OP_CALL
       {
 	string cname, mname;
 	bufferlist indata;
@@ -6012,10 +6012,10 @@ int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
 	tracepoint(osd, do_osd_op_pre_call, soid.oid.name.c_str(), soid.snap.val, cname.c_str(), mname.c_str());
 
 	ClassHandler::ClassData *cls;
-	result = ClassHandler::get_instance().open_class(cname, &cls);
+	result = ClassHandler::get_instance().open_class(cname, &cls); // 加载插件并初始化
 	ceph_assert(result == 0);   // init_op_flags() already verified this works.
 
-	ClassHandler::ClassMethod *method = cls->get_method(mname);
+	ClassHandler::ClassMethod *method = cls->get_method(mname); // 获取方法句柄
 	if (!method) {
 	  dout(10) << "call method " << cname << "." << mname << " does not exist" << dendl;
 	  result = -EOPNOTSUPP;
@@ -6030,7 +6030,7 @@ int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
 	dout(10) << "call method " << cname << "." << mname << dendl;
 	int prev_rd = ctx->num_read;
 	int prev_wr = ctx->num_write;
-	result = method->exec((cls_method_context_t)&ctx, indata, outdata);
+	result = method->exec((cls_method_context_t)&ctx, indata, outdata); // 执行方法
 
 	if (ctx->num_read > prev_rd && !(flags & CLS_METHOD_RD)) {
 	  derr << "method " << cname << "." << mname << " tried to read object but is not marked RD" << dendl;
@@ -7348,28 +7348,28 @@ int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops)
       ++ctx->num_write;
       result = 0;
       {
-	if (cct->_conf->osd_max_attr_size > 0 &&
-	    op.xattr.value_len > cct->_conf->osd_max_attr_size) {
-	  tracepoint(osd, do_osd_op_pre_setxattr, soid.oid.name.c_str(), soid.snap.val, "???");
-	  result = -EFBIG;
-	  break;
-	}
-	unsigned max_name_len =
-	  std::min<uint64_t>(osd->store->get_max_attr_name_length(),
-			     cct->_conf->osd_max_attr_name_len);
-	if (op.xattr.name_len > max_name_len) {
-	  result = -ENAMETOOLONG;
-	  break;
-	}
-	maybe_create_new_object(ctx);
-	string aname;
-	bp.copy(op.xattr.name_len, aname);
-	tracepoint(osd, do_osd_op_pre_setxattr, soid.oid.name.c_str(), soid.snap.val, aname.c_str());
-	string name = "_" + aname;
-	bufferlist bl;
-	bp.copy(op.xattr.value_len, bl);
-	t->setattr(soid, name, bl);
- 	ctx->delta_stats.num_wr++;
+        if (cct->_conf->osd_max_attr_size > 0 &&
+            op.xattr.value_len > cct->_conf->osd_max_attr_size) {
+          tracepoint(osd, do_osd_op_pre_setxattr, soid.oid.name.c_str(), soid.snap.val, "???");
+          result = -EFBIG;
+          break;
+        }
+        unsigned max_name_len =
+          std::min<uint64_t>(osd->store->get_max_attr_name_length(),
+                     cct->_conf->osd_max_attr_name_len);
+        if (op.xattr.name_len > max_name_len) {
+          result = -ENAMETOOLONG;
+          break;
+        }
+        maybe_create_new_object(ctx);
+        string aname;
+        bp.copy(op.xattr.name_len, aname);
+        tracepoint(osd, do_osd_op_pre_setxattr, soid.oid.name.c_str(), soid.snap.val, aname.c_str());
+        string name = "_" + aname;
+        bufferlist bl;
+        bp.copy(op.xattr.value_len, bl);
+        t->setattr(soid, name, bl);
+        ctx->delta_stats.num_wr++;
       }
       break;
 

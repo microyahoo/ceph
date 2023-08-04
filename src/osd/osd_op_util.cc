@@ -166,44 +166,44 @@ int OpInfo::set_from_op(
     }
 
     switch (iter->op.op) {
-    case CEPH_OSD_OP_CALL:
+    case CEPH_OSD_OP_CALL: // 如果 op 类型为 CEPH_OSD_OP_CALL
       {
-	bufferlist::iterator bp = const_cast<bufferlist&>(iter->indata).begin();
-	int is_write, is_read;
-	string cname, mname;
-	bp.copy(iter->op.cls.class_len, cname);
-	bp.copy(iter->op.cls.method_len, mname);
+        bufferlist::iterator bp = const_cast<bufferlist&>(iter->indata).begin();
+        int is_write, is_read;
+        string cname, mname;
+        bp.copy(iter->op.cls.class_len, cname);
+        bp.copy(iter->op.cls.method_len, mname);
 
-	ClassHandler::ClassData *cls;
-	int r = ClassHandler::get_instance().open_class(cname, &cls);
-	if (r) {
-	  if (r == -ENOENT)
-	    r = -EOPNOTSUPP;
-	  else if (r != -EPERM) // propagate permission errors
-	    r = -EIO;
-	  return r;
-	}
-	int flags = cls->get_method_flags(mname);
-	if (flags < 0) {
-	  if (flags == -ENOENT)
-	    r = -EOPNOTSUPP;
-	  else
-	    r = flags;
-	  return r;
-	}
-	is_read = flags & CLS_METHOD_RD;
-	is_write = flags & CLS_METHOD_WR;
-        bool is_promote = flags & CLS_METHOD_PROMOTE;
+        ClassHandler::ClassData *cls;
+        int r = ClassHandler::get_instance().open_class(cname, &cls);
+        if (r) {
+          if (r == -ENOENT)
+            r = -EOPNOTSUPP;
+          else if (r != -EPERM) // propagate permission errors
+            r = -EIO;
+          return r;
+        }
+        int flags = cls->get_method_flags(mname);
+        if (flags < 0) {
+          if (flags == -ENOENT)
+            r = -EOPNOTSUPP;
+          else
+            r = flags;
+          return r;
+        }
+        is_read = flags & CLS_METHOD_RD;
+        is_write = flags & CLS_METHOD_WR;
+            bool is_promote = flags & CLS_METHOD_PROMOTE;
 
-	if (is_read)
-	  set_class_read();
-	if (is_write)
-	  set_class_write();
+        if (is_read)
+          set_class_read();
+        if (is_write)
+          set_class_write();
         if (is_promote)
           set_promote();
         add_class(std::move(cname), std::move(mname), is_read, is_write,
                       cls->allowed);
-	break;
+        break;
       }
 
     case CEPH_OSD_OP_WATCH:

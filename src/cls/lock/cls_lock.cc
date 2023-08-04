@@ -608,7 +608,7 @@ int set_cookie(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
   return 0;
 }
 
-CLS_INIT(lock)
+CLS_INIT(lock) // __cls_init
 {
   CLS_LOG(20, "Loaded lock class!");
 

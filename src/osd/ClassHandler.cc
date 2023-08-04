@@ -67,7 +67,7 @@ int ClassHandler::open_all_classes()
       ldout(cct, 10) << __func__ << " found " << cname << dendl;
       ClassData *cls;
       // skip classes that aren't in 'osd class load list'
-      r = open_class(cname, &cls);
+      r = open_class(cname, &cls); // 加载插件 so
       if (r < 0 && r != -EPERM)
 	goto out;
     }
@@ -122,7 +122,7 @@ ClassHandler::ClassData *ClassHandler::_get_class(const string& cname,
       ldout(cct, 0) << "_get_class not permitted to load " << cname << dendl;
       return NULL;
     }
-    cls = &classes[cname];
+    cls = &classes[cname]; // 记录注册的插件
     ldout(cct, 10) << "_get_class adding new class name " << cname << " " << cls << dendl;
     cls->name = cname;
     cls->handler = this;
@@ -145,18 +145,18 @@ int ClassHandler::_load_class(ClassData *cls)
 	     cls->name.c_str());
     ldout(cct, 10) << "_load_class " << cls->name << " from " << fname << dendl;
 
-    cls->handle = dlopen(fname, RTLD_NOW);
+    cls->handle = dlopen(fname, RTLD_NOW); // dlopen so 插件
     if (!cls->handle) {
       struct stat st;
       int r = ::stat(fname, &st);
       if (r < 0) {
         r = -errno;
-	ldout(cct, 0) << __func__ << " could not stat class " << fname
-		      << ": " << cpp_strerror(r) << dendl;
+        ldout(cct, 0) << __func__ << " could not stat class " << fname
+                  << ": " << cpp_strerror(r) << dendl;
       } else {
-	ldout(cct, 0) << "_load_class could not open class " << fname
-		      << " (dlopen failed): " << dlerror() << dendl;
-	r = -EIO;
+        ldout(cct, 0) << "_load_class could not open class " << fname
+                  << " (dlopen failed): " << dlerror() << dendl;
+        r = -EIO;
       }
       cls->status = ClassData::CLASS_MISSING;
       return r;
@@ -167,13 +167,13 @@ int ClassHandler::_load_class(ClassData *cls)
     if (cls_deps) {
       cls_deps_t *deps = cls_deps();
       while (deps) {
-	if (!deps->name)
-	  break;
-	ClassData *cls_dep = _get_class(deps->name, false);
-	cls->dependencies.insert(cls_dep);
-	if (cls_dep->status != ClassData::CLASS_OPEN)
-	  cls->missing_dependencies.insert(cls_dep);
-	deps++;
+        if (!deps->name)
+          break;
+        ClassData *cls_dep = _get_class(deps->name, false);
+        cls->dependencies.insert(cls_dep);
+        if (cls_dep->status != ClassData::CLASS_OPEN)
+          cls->missing_dependencies.insert(cls_dep);
+        deps++;
       }
     }
   }
@@ -182,7 +182,7 @@ int ClassHandler::_load_class(ClassData *cls)
   set<ClassData*>::iterator p = cls->missing_dependencies.begin();
   while (p != cls->missing_dependencies.end()) {
     ClassData *dc = *p;
-    int r = _load_class(dc);
+    int r = _load_class(dc); // 递归调用 _load_class 解决依赖库
     if (r < 0) {
       cls->status = ClassData::CLASS_MISSING_DEPS;
       return r;
@@ -193,10 +193,10 @@ int ClassHandler::_load_class(ClassData *cls)
   }
 
   // initialize
-  void (*cls_init)() = (void (*)())dlsym(cls->handle, "__cls_init");
+  void (*cls_init)() = (void (*)())dlsym(cls->handle, "__cls_init"); // 插件的入口，很关键，就是分析symbol，找到__cls_init，每个插件都有这个函数
   if (cls_init) {
     cls->status = ClassData::CLASS_INITIALIZING;
-    cls_init();
+    cls_init(); // 初始化插件，调用插件入口函数__cls_init
   }
 
   ldout(cct, 10) << "_load_class " << cls->name << " success" << dendl;
@@ -314,15 +314,15 @@ int ClassHandler::ClassMethod::exec(cls_method_context_t ctx, bufferlist& indata
   int ret = 0;
   std::visit([&](auto method) {
     using method_t = decltype(method);
-    if constexpr (std::is_same_v<method_t, cls_method_cxx_call_t>) {
+    if constexpr (std::is_same_v<method_t, cls_method_cxx_call_t>) { // C++ 函数
       // C++ call version
       ret = method(ctx, &indata, &outdata);
-    } else if constexpr (std::is_same_v<method_t, cls_method_call_t>) {
+    } else if constexpr (std::is_same_v<method_t, cls_method_call_t>) { // C 函数
       // C version
       char *out = nullptr;
       int olen = 0;
-      ret = method(ctx, indata.c_str(), indata.length(), &out, &olen);
-      if (out) {
+      ret = method(ctx, indata.c_str(), indata.length(), &out, &olen); // 参数转化后调用
+      if (out) { // 处理结果参数，将其转化为 bufferlist
         // assume *out was allocated via cls_alloc (which calls malloc!)
 	ceph::buffer::ptr bp = ceph::buffer::claim_malloc(olen, out);
         outdata.push_back(bp);

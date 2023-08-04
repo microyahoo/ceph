@@ -149,7 +149,7 @@ void librados::ObjectOperation::assert_exists()
 }
 
 void librados::ObjectOperation::exec(const char *cls, const char *method,
-				     bufferlist& inbl)
+				     bufferlist& inbl) // 第一个参数是插件名，第二个参数是插件对应的方法，第三个参数是方法的输入参数
 {
   ceph_assert(impl);
   ::ObjectOperation *o = &impl->o;

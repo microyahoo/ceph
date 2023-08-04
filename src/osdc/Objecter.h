@@ -229,9 +229,9 @@ struct ObjectOperation {
     osd_op.op.cls.class_len = cname.size();
     osd_op.op.cls.method_len = method.size();
     osd_op.op.cls.indata_len = indata.length();
-    osd_op.indata.append(cname.data(), osd_op.op.cls.class_len);
-    osd_op.indata.append(method.data(), osd_op.op.cls.method_len);
-    osd_op.indata.append(indata);
+    osd_op.indata.append(cname.data(), osd_op.op.cls.class_len); // 插件名
+    osd_op.indata.append(method.data(), osd_op.op.cls.method_len); // 方法名
+    osd_op.indata.append(indata); // 输入参数
   }
   void add_call(int op, std::string_view cname, std::string_view method,
 		const ceph::buffer::list &indata,
@@ -1335,7 +1335,7 @@ struct ObjectOperation {
 
   // object classes
   void call(const char *cname, const char *method, ceph::buffer::list &indata) {
-    add_call(CEPH_OSD_OP_CALL, cname, method, indata, NULL, NULL, NULL);
+    add_call(CEPH_OSD_OP_CALL, cname, method, indata, NULL, NULL, NULL); // CEPH_OSD_OP_CALL，后端收到 op 消息后，通过这个值判断是插件的请求
   }
 
   void call(const char *cname, const char *method, ceph::buffer::list &indata,
