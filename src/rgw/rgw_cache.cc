@@ -232,8 +232,8 @@ bool ObjectCache::remove(const DoutPrefixProvider *dpp, const string& name)
     kv.first->invalidate(kv.second);
   }
 
-  remove_lru(name, iter->second.lru_iter);
-  cache_map.erase(iter);
+  remove_lru(name, iter->second.lru_iter); // 更新 lru
+  cache_map.erase(iter); // cache map 中移除该对象缓存
   return true;
 }
 

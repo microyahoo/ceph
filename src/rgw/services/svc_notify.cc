@@ -176,7 +176,7 @@ RGWSI_RADOS::Obj RGWSI_Notify::pick_control_obj(const string& key)
 
 int RGWSI_Notify::init_watch(const DoutPrefixProvider *dpp, optional_yield y)
 {
-  num_watchers = cct->_conf->rgw_num_control_oids;
+  num_watchers = cct->_conf->rgw_num_control_oids; // 默认值为 8
 
   bool compat_oid = (num_watchers == 0);
 
@@ -382,14 +382,14 @@ int RGWSI_Notify::distribute(const DoutPrefixProvider *dpp, const string& key,
 			     const RGWCacheNotifyInfo& cni,
                              optional_yield y)
 {
-  /* The RGW uses the control pool to store the watch notify objects.
+  /* The RGW uses the control pool to store the watch notify objects. // default.rgw.control pool 中存储的 watch-notify 对象
     The precedence in RGWSI_Notify::do_start is to call to zone_svc->start and later to init_watch().
     The first time, RGW starts in the cluster, the RGW will try to create zone and zonegroup system object.
     In that case RGW will try to distribute the cache before it ran init_watch,
     which will lead to division by 0 in pick_obj_control (num_watchers is 0).
   */
   if (num_watchers > 0) {
-    RGWSI_RADOS::Obj notify_obj = pick_control_obj(key);
+    RGWSI_RADOS::Obj notify_obj = pick_control_obj(key); // 计算 key 的 hash 值，并选择对应的 notify 对象
 
     ldpp_dout(dpp, 10) << "distributing notification oid=" << notify_obj.get_ref().obj
 		       << " cni=" << cni << dendl;

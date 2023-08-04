@@ -13,14 +13,14 @@ class RGWSI_Notify;
 class RGWSI_SysObj_Cache_CB;
 class RGWSI_SysObj_Cache_ASocketHook;
 
-class RGWSI_SysObj_Cache : public RGWSI_SysObj_Core
+class RGWSI_SysObj_Cache : public RGWSI_SysObj_Core // https://github.com/ceph/ceph/pull/24014
 {
   friend class RGWSI_SysObj_Cache_CB;
   friend class RGWServices_Def;
   friend class ASocketHandler;
 
   RGWSI_Notify *notify_svc{nullptr};
-  ObjectCache cache;
+  ObjectCache cache; // 对象缓存
 
   std::shared_ptr<RGWSI_SysObj_Cache_CB> cb;
 
@@ -63,7 +63,7 @@ protected:
                 RGWObjVersionTracker *objv_tracker,
                 optional_yield y);
 
-  int remove(const DoutPrefixProvider *dpp, 
+  int remove(const DoutPrefixProvider *dpp,  // 移除缓存
              RGWSysObjectCtxBase& obj_ctx,
              RGWObjVersionTracker *objv_tracker,
              const rgw_raw_obj& obj,
@@ -88,15 +88,15 @@ protected:
 
   int distribute_cache(const DoutPrefixProvider *dpp, const string& normal_name, const rgw_raw_obj& obj,
                        ObjectCacheInfo& obj_info, int op,
-                       optional_yield y);
+                       optional_yield y); // 缓存分发
 
-  int watch_cb(const DoutPrefixProvider *dpp,
+  int watch_cb(const DoutPrefixProvider *dpp, // watch 回调函数
                uint64_t notify_id,
                uint64_t cookie,
                uint64_t notifier_id,
                bufferlist& bl);
 
-  void set_enabled(bool status);
+  void set_enabled(bool status); // watch/notify 开关，用于分布式多 RGW 实例的缓存同步
 
 public:
   RGWSI_SysObj_Cache(const DoutPrefixProvider *dpp, CephContext *cct) : RGWSI_SysObj_Core(cct), asocket(dpp, this) {

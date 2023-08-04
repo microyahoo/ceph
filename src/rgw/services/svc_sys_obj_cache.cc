@@ -93,7 +93,7 @@ int RGWSI_SysObj_Cache::remove(const DoutPrefixProvider *dpp,
   string oid;
   normalize_pool_and_obj(obj.pool, obj.oid, pool, oid);
 
-  string name = normal_name(pool, oid);
+  string name = normal_name(pool, oid); // pool.name+pool.namespace+oid
   cache.remove(dpp, name);
 
   ObjectCacheInfo info;

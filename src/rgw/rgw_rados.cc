@@ -1163,7 +1163,7 @@ int RGWRados::update_service_map(std::map<std::string, std::string>&& status)
  * Returns 0 on success, -ERR# on failure.
  */
 int RGWRados::init_complete(const DoutPrefixProvider *dpp)
-{
+{ // 打开相关 pool， 并初始化相关线程，例如 lc, gc, reshard, RGWMetaSyncProcessorThread, RGWDataSyncProcessorThread, RGWSyncLogTrimThread, RGWIndexCompletionManager 等
   int ret;
 
   /* 
@@ -6840,7 +6840,7 @@ int RGWRados::block_while_resharding(RGWRados::BucketShard *bs,
   constexpr int num_retries = 10;
   for (int i = 1; i <= num_retries; i++) { // nb: 1-based for loop
     auto& ref = bs->bucket_obj.get_ref();
-    ret = cls_rgw_get_bucket_resharding(ref.pool.ioctx(), ref.obj.oid, &entry);
+    ret = cls_rgw_get_bucket_resharding(ref.pool.ioctx(), ref.obj.oid, &entry); // rgw_get_bucket_resharding
     if (ret == -ENOENT) {
       ret = fetch_new_bucket_id(bucket_info, nullptr, *new_bucket_id, dpp);
       if (ret < 0) {

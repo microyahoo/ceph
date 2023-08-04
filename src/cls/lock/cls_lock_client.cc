@@ -57,7 +57,7 @@ namespace rados {
       {
         ObjectWriteOperation op;
         lock(&op, name, type, cookie, tag, description, duration, flags);
-        return ioctx->operate(oid, &op);
+        return ioctx->operate(oid, &op); // ? 加锁
       }
 
       void unlock(ObjectWriteOperation *rados_op,

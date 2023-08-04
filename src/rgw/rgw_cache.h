@@ -49,7 +49,7 @@ struct ObjectMetaInfo {
 };
 WRITE_CLASS_ENCODER(ObjectMetaInfo)
 
-struct ObjectCacheInfo {
+struct ObjectCacheInfo { // 包含缓存对象 data, metadata, xattrs 等
   int status = 0;
   uint32_t flags = 0;
   uint64_t epoch = 0;
@@ -153,7 +153,7 @@ struct ObjectCacheEntry {
   ObjectCacheInfo info;
   std::list<string>::iterator lru_iter;
   uint64_t lru_promotion_ts;
-  uint64_t gen;
+  uint64_t gen; // 版本号
   std::vector<pair<RGWChainedCache *, string> > chained_entries;
 
   ObjectCacheEntry() : lru_promotion_ts(0), gen(0) {}
