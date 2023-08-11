@@ -2195,7 +2195,7 @@ void RGWGetObj::execute(optional_yield y)
   bool need_decompress;
   int64_t ofs_x, end_x;
 
-  RGWGetObj_CB cb(this);
+  RGWGetObj_CB cb(this); // get obj 回调函数，flush 的时候会调用，即为 send_response_data
   RGWGetObj_Filter* filter = (RGWGetObj_Filter *)&cb;
   boost::optional<RGWGetObj_Decompress> decompress;
   std::unique_ptr<RGWGetObj_Filter> decrypt;
@@ -2345,7 +2345,7 @@ void RGWGetObj::execute(optional_yield y)
   ofs_x = ofs;
   end_x = end;
   filter->fixup_range(ofs_x, end_x);
-  op_ret = read_op->iterate(this, ofs_x, end_x, filter, s->yield);
+  op_ret = read_op->iterate(this, ofs_x, end_x, filter, s->yield); // 读取数据 src/rgw/rgw_rados.cc
 
   if (op_ret >= 0)
     op_ret = filter->flush();

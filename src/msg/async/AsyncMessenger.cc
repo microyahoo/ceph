@@ -164,7 +164,7 @@ void Processor::start()
                 return;
               }
           worker->center.create_file_event(listen_socket.fd(), EVENT_READABLE,
-                           listen_handler); } // 创建可读事件，将 listen_socket 对应的 fd 加入到 epoll 进行管理, 回调函数执行的是 accept()
+                           listen_handler); } // 创建可读事件，将 listen_socket 对应的 fd 加入到 epoll 进行管理, 如果有客户端请求来连接，则会触发回调函数执行的是 accept()
       }
     }, false);
 }
@@ -185,8 +185,8 @@ void Processor::accept() // Processor 的 listen_handler 对应的回调函数
       entity_addr_t addr; // peer addr
       ConnectedSocket cli_socket;
       Worker *w = worker; // 一个 worker 可以对应多条连接
-      if (!msgr->get_stack()->support_local_listen_table())
-        w = msgr->get_stack()->get_worker();
+      if (!msgr->get_stack()->support_local_listen_table()) // posix 为 false
+        w = msgr->get_stack()->get_worker(); // 选取引用数最少的 worker
       else
         ++w->references; // 更新 worker 的引用数
       int r = listen_socket.accept(&cli_socket, opts, &addr, w); // 成功 accept 之后会设置 connectedSocket，用于收发数据。注意这里传入的 worker 没有用到

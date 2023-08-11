@@ -422,7 +422,7 @@ done:
       if (!content_type)
           content_type = "binary/octet-stream";
 
-      end_header(s, this, content_type);
+      end_header(s, this, content_type); // 发送 header 信息
   }
 
   if (metadata_bl.length()) {
@@ -432,7 +432,7 @@ done:
 
 send_data:
   if (get_data && !op_ret) {
-    int r = dump_body(s, bl.c_str() + bl_ofs, bl_len);
+    int r = dump_body(s, bl.c_str() + bl_ofs, bl_len); // 发送 body
     if (r < 0)
       return r;
   }

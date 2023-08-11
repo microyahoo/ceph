@@ -6399,7 +6399,7 @@ struct get_obj_data {
       completed.pop_front_and_dispose(std::default_delete<rgw::AioResultEntry>{});
 
       offset += bl.length();
-      int r = client_cb->handle_data(bl, 0, bl.length());
+      int r = client_cb->handle_data(bl, 0, bl.length()); // 客户端回调函数, RGWGetObj_CB, 即为 send_response_data
       if (r < 0) {
         return r;
       }
@@ -6437,7 +6437,7 @@ static int _get_obj_iterate_cb(const DoutPrefixProvider *dpp,
                                       is_head_obj, astate, arg);
 }
 
-int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp,
+int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp, // get object 回调函数
                                  const rgw_raw_obj& read_obj, off_t obj_ofs,
                                  off_t read_ofs, off_t len, bool is_head_obj,
                                  RGWObjState *astate, void *arg)
@@ -6522,9 +6522,9 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
   bool reading_from_head = true;
   RGWObjState *astate = NULL;
 
-  obj_to_raw(bucket_info.placement_rule, obj, &head_obj);
+  obj_to_raw(bucket_info.placement_rule, obj, &head_obj); // 获取 head obj 信息
 
-  int r = get_obj_state(dpp, &obj_ctx, bucket_info, obj, &astate, false, y);
+  int r = get_obj_state(dpp, &obj_ctx, bucket_info, obj, &astate, false, y); // 获取 obj state 信息
   if (r < 0) {
     return r;
   }
@@ -6534,7 +6534,7 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
   else
     len = end - ofs + 1;
 
-  if (astate->manifest) {
+  if (astate->manifest) { // 如果 manifest 不为空
     /* now get the relevant object stripe */
     RGWObjManifest::obj_iterator iter = astate->manifest->obj_find(dpp, ofs);
 
@@ -6554,12 +6554,12 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
         }
 
         reading_from_head = (read_obj == head_obj);
-        r = cb(dpp, read_obj, ofs, read_ofs, read_len, reading_from_head, astate, arg);
-	if (r < 0) {
-	  return r;
+        r = cb(dpp, read_obj, ofs, read_ofs, read_len, reading_from_head, astate, arg); // 读取分段信息并调用回调函数
+        if (r < 0) {
+          return r;
         }
 
-	len -= read_len;
+        len -= read_len;
         ofs += read_len;
       }
     }
@@ -6570,7 +6570,7 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
 
       r = cb(dpp, read_obj, ofs, ofs, read_len, reading_from_head, astate, arg);
       if (r < 0) {
-	return r;
+        return r;
       }
 
       len -= read_len;

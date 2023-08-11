@@ -4530,9 +4530,9 @@ int OSD::update_crush_location()
       derr << "statfs: " << cpp_strerror(r) << dendl;
       return r;
     }
-    snprintf(weight, sizeof(weight), "%.4lf",
+    snprintf(weight, sizeof(weight), "%.4lf", // 计算其权重
 	     std::max(.00001,
-		      double(st.total) /
+		      double(st.total) / // 容量除以 1T
 		      double(1ull << 40 /* TB */)));
   }
 
