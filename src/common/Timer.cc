@@ -87,20 +87,20 @@ void CommonSafeTimer<Mutex>::timer_thread()
       auto p = schedule.begin();
 
       // is the future now?
-      if (p->first > now)
-	break;
+      if (p->first > now) // 如果还没到期
+        break;
 
       Context *callback = p->second;
-      events.erase(callback);
+      events.erase(callback); // 分别从 schedule 和 event 中删除这个 callback
       schedule.erase(p);
       ldout(cct,10) << "timer_thread executing " << callback << dendl;
-      
+
       if (!safe_callbacks) {
-	l.unlock();
-	callback->complete(0);
-	l.lock();
+        l.unlock();
+        callback->complete(0); // 执行 callback
+        l.lock();
       } else {
-	callback->complete(0);
+        callback->complete(0);
       }
     }
 
@@ -110,10 +110,10 @@ void CommonSafeTimer<Mutex>::timer_thread()
 
     ldout(cct,20) << "timer_thread going to sleep" << dendl;
     if (schedule.empty()) {
-      cond.wait(l);
+      cond.wait(l); // 如果没有 callback 则 wait
     } else {
       auto when = schedule.begin()->first;
-      cond.wait_until(l, when);
+      cond.wait_until(l, when); // wait 直到第一个 callback 到期
     }
     ldout(cct,20) << "timer_thread awake" << dendl;
   }

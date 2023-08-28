@@ -622,10 +622,10 @@ class MonitorDBStore
     }
     std::ostringstream os;
     os << path.substr(0, path.size() - pos) << "/store.db";
-    std::string full_path = os.str();
+    std::string full_path = os.str(); // store.db 的完整路径
 
     KeyValueDB *db_ptr = KeyValueDB::create(g_ceph_context,
-					    kv_type,
+					    kv_type, // 生产环境默认为 rocksdb
 					    full_path);
     if (!db_ptr) {
       derr << __func__ << " error initializing "
@@ -653,7 +653,7 @@ class MonitorDBStore
       do_dump = true;
     }
     if (kv_type == "rocksdb")
-      db->init(g_conf()->mon_rocksdb_options);
+      db->init(g_conf()->mon_rocksdb_options); // "mon_rocksdb_options": "write_buffer_size=33554432,compression=kNoCompression,level_compaction_dynamic_level_bytes=true"  src/kv/RocksDBStore.cc
     else
       db->init();
 
@@ -694,16 +694,16 @@ class MonitorDBStore
     std::string kv_type;
     int r = read_meta("kv_backend", &kv_type);
     if (r < 0) {
-      kv_type = g_conf()->mon_keyvaluedb;
-      r = write_meta("kv_backend", kv_type);
+      kv_type = g_conf()->mon_keyvaluedb; // rocksdb
+      r = write_meta("kv_backend", kv_type); // 将 kv type 写入 kv_backend 文件
       if (r < 0)
 	return r;
     }
-    _open(kv_type);
+    _open(kv_type); // 创建 RocksDBStore，并初始化选项
     r = db->create_and_open(out);
     if (r < 0)
       return r;
-    io_work.start();
+    io_work.start(); // create Finisher 线程
     is_open = true;
     return 0;
   }

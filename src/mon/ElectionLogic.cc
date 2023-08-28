@@ -52,7 +52,7 @@ static ostream& _prefix(std::ostream *_dout, epoch_t epoch, ElectionOwner* elect
 }
 void ElectionLogic::init()
 {
-  epoch = elector->read_persisted_epoch();
+  epoch = elector->read_persisted_epoch(); // 从 db 中读取 epoch
   if (!epoch) {
     ldout(cct, 1) << "init, first boot, initializing epoch at 1 " << dendl;
     epoch = 1;
@@ -60,7 +60,7 @@ void ElectionLogic::init()
     ldout(cct, 1) << "init, last seen epoch " << epoch
 	    << ", mid-election, bumping" << dendl;
     ++epoch;
-    elector->persist_epoch(epoch);
+    elector->persist_epoch(epoch); // 持久化 epoch 到 db
   } else {
     ldout(cct, 1) << "init, last seen epoch " << epoch << dendl;
   }
@@ -70,9 +70,9 @@ void ElectionLogic::bump_epoch(epoch_t e)
 {
   ldout(cct, 10) << __func__ << " to "  << e << dendl;
   ceph_assert(epoch <= e);
-  epoch = e;
+  epoch = e; // 设置 epoch
   peer_tracker->increase_epoch(e);
-  elector->persist_epoch(epoch);
+  elector->persist_epoch(epoch); // 持久化 epoch 到 db
   // clear up some state
   electing_me = false;
   acked_me.clear();
@@ -116,20 +116,20 @@ void ElectionLogic::connectivity_bump_epoch_in_election(epoch_t mepoch)
 
 void ElectionLogic::start()
 {
-  if (!participating) {
+  if (!participating) { // 默认值为 true
     ldout(cct, 0) << "not starting new election -- not participating" << dendl;
     return;
   }
   ldout(cct, 5) << "start -- can i be leader?" << dendl;
 
   acked_me.clear();
-  init();
+  init(); // 设置 epoch 
   
   // start by trying to elect me
   if (epoch % 2 == 0) {
-    bump_epoch(epoch+1);  // odd == election cycle
+    bump_epoch(epoch+1);  // odd == election cycle 设置 epoch 为奇数
   } else {
-    elector->validate_store();
+    elector->validate_store(); // 校验 db 是否正常，写入一个随机数
   }
   acked_me.insert(elector->get_my_rank());
   clear_live_election_state();
@@ -140,7 +140,7 @@ void ElectionLogic::start()
   if (strategy == CONNECTIVITY) {
     stable_peer_tracker->encode(bl);
   }
-  elector->propose_to_peers(epoch, bl);
+  elector->propose_to_peers(epoch, bl); // 发送 Propose 消息到所有的 peers
   elector->_start();
 }
 
@@ -161,7 +161,7 @@ void ElectionLogic::defer(int who)
   }
 
   // ack them
-  leader_acked = who;
+  leader_acked = who; // 确认 leader 为 who
   elector->_defer_to(who);
 }
 
@@ -194,8 +194,8 @@ void ElectionLogic::declare_victory()
   set<int> new_quorum;
   new_quorum.swap(acked_me);
   
-  ceph_assert(epoch % 2 == 1);  // election
-  bump_epoch(epoch+1);     // is over!
+  ceph_assert(epoch % 2 == 1);  // election 选举时 epoch 为奇数
+  bump_epoch(epoch+1);     // is over! 将 epoch 加 1，设置为偶数
 
   elector->message_victory(new_quorum);
 }
@@ -303,7 +303,7 @@ void ElectionLogic::propose_classic_handler(int from, epoch_t mepoch)
     if (leader_acked < 0 || // haven't acked anyone yet, or
 	leader_acked > from ||   // they would win over who you did ack, or
 	leader_acked == from) {  // this is the guy we're already deferring to
-      defer(from);
+      defer(from); // 投票给 from
     } else {
       // ignore them!
       ldout(cct, 5) << "no, we already acked " << leader_acked << dendl;
@@ -487,10 +487,10 @@ void ElectionLogic::receive_ack(int from, epoch_t from_epoch)
   }
   // is that _everyone_?
   if (electing_me) {
-    acked_me.insert(from);
-    if (acked_me.size() == elector->paxos_size()) {
+    acked_me.insert(from); // 将 from 加入 acked_me 列表，表示 from 确认投票选举
+    if (acked_me.size() == elector->paxos_size()) { // 如果投票给我的票数等于 paxos size，有点奇怪的是这里为啥要是等于 paxos size，而不是大于半数?
       // if yes, shortcut to election finish
-      declare_victory();
+      declare_victory(); // 宣布赢得胜利，成为 leader
     }
   } else {
     // ignore, i'm deferring already.
@@ -503,7 +503,7 @@ bool ElectionLogic::victory_makes_sense(int from)
   bool makes_sense = false;
   switch (strategy) {
   case CLASSIC:
-    makes_sense = (from < elector->get_my_rank());
+    makes_sense = (from < elector->get_my_rank()); // from 的 rank 必须小于当前 monitor 的 rank
     break;
   case DISALLOW:
     makes_sense = (from < elector->get_my_rank()) ||

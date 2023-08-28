@@ -452,7 +452,7 @@ int RocksDBStore::install_cf_mergeop(
 int RocksDBStore::create_and_open(ostream &out,
 				  const std::string& cfs)
 {
-  int r = create_db_dir();
+  int r = create_db_dir(); // 创建 db path 目录
   if (r < 0)
     return r;
   return do_open(out, true, false, cfs);
@@ -496,7 +496,7 @@ int RocksDBStore::load_rocksdb_options(bool create_if_missing, rocksdb::Options&
   }
 
   opt.create_if_missing = create_if_missing;
-  if (kv_options.count("separate_wal_dir")) {
+  if (kv_options.count("separate_wal_dir")) { // 设置单独的 wal 目录，默认 false
     opt.wal_dir = path + ".wal";
   }
 
@@ -1133,7 +1133,7 @@ int RocksDBStore::do_open(ostream &out,
   }
   rocksdb::Status status;
   if (create_if_missing) {
-    status = rocksdb::DB::Open(opt, path, &db);
+    status = rocksdb::DB::Open(opt, path, &db); // open db
     if (!status.ok()) {
       derr << status.ToString() << dendl;
       return -EINVAL;

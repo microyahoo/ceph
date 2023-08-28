@@ -835,6 +835,7 @@ start_mon() {
 [mon.$f]
         host = $HOSTNAME
         mon data = $CEPH_DEV_DIR/mon.$f
+        mon debug dump transactions = true
 EOF
             count=$(($count + 2))
         done
@@ -1226,7 +1227,7 @@ else
         debug paxos = 20
         debug auth = 20
         debug mgrc = 20
-        debug ms = 1'
+        debug ms = 10'
 fi
 
 if [ -n "$MON_ADDR" ]; then

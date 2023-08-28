@@ -473,7 +473,7 @@ void ProtocolV2::read_event() {
 
   switch (state) {
     case START_CONNECT:
-      run_continuation(CONTINUATION(start_client_banner_exchange));
+      run_continuation(CONTINUATION(start_client_banner_exchange)); // 交换 client banner
       break;
     case START_ACCEPT:
       run_continuation(CONTINUATION(start_server_banner_exchange)); // 交换 server banner
@@ -919,7 +919,7 @@ CtPtr ProtocolV2::_handle_peer_banner_payload(rx_buffer_t &&buffer, int r) {
                   << " required=" << std::hex << required_features
                   << " supported=" << std::hex << peer_supported_features
                   << std::dec << dendl;
-    stop();
+    stop(); // 如果 peer 支持的 features 和需要的 features 不匹配
     connection->dispatch_queue->queue_reset(connection);
     return nullptr;
   }
@@ -927,7 +927,7 @@ CtPtr ProtocolV2::_handle_peer_banner_payload(rx_buffer_t &&buffer, int r) {
     ldout(cct, 1) << __func__ << " we do not support all peer required features"
                   << " required=" << std::hex << peer_required_features
                   << " supported=" << supported_features << std::dec << dendl;
-    stop();
+    stop(); // 如果 peer 需要的 features 和支持的 features 不匹配
     connection->dispatch_queue->queue_reset(connection);
     return nullptr;
   }
@@ -1366,7 +1366,7 @@ CtPtr ProtocolV2::handle_message() {
   ceph_msg_footer footer{init_le32(0), init_le32(0),
 	                 init_le32(0), init_le64(0), current_header.flags};
 
-  Message *message = decode_message(cct, 0, header, footer, // 将消息帧解析为 Message
+  Message *message = decode_message(cct, 0, header, footer, // 将消息帧解析为 Message, header.type 为消息类型
       msg_frame.front(),
       msg_frame.middle(),
       msg_frame.data(),
@@ -1486,7 +1486,7 @@ CtPtr ProtocolV2::handle_message() {
       // yes, that was the case, let's do nothing
       return nullptr;
     }
-  } else {
+  } else { // 将收到的消息加入到 dispatch queue
     connection->dispatch_queue->enqueue(message, message->get_priority(),
                                         connection->conn_id);
   }

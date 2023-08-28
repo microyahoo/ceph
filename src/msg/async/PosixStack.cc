@@ -133,7 +133,7 @@ class PosixConnectedSocketImpl final : public ConnectedSocketImpl {
         msglen += pb->length();
         ++pb;
       }
-      ssize_t r = do_sendmsg(_fd, msg, msglen, left_pbrs || more);
+      ssize_t r = do_sendmsg(_fd, msg, msglen, left_pbrs || more); // 发送消息
       if (r < 0)
         return r;
 

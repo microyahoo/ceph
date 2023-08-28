@@ -440,7 +440,7 @@ public:
     using ceph::encode;
     ceph::buffer::list bl;
     encode(next, bl);
-    t->put("health", service_name, bl);
+    t->put("health", service_name, bl); // 持久化健康状态到 store 的 health <service>
     mon.log_health(next, health_checks, t);
   }
   void load_health();

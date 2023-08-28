@@ -95,7 +95,7 @@ void Elector::persist_connectivity_scores()
 
 epoch_t Elector::read_persisted_epoch() const
 {
-  return mon->store->get(Monitor::MONITOR_NAME, "election_epoch");
+  return mon->store->get(Monitor::MONITOR_NAME, "election_epoch"); // 从 store 中读取 monitor election_epoch
 }
 
 void Elector::validate_store()
@@ -151,7 +151,7 @@ void Elector::propose_to_peers(epoch_t e, bufferlist& logic_bl)
   // bcast to everyone else
   for (unsigned i=0; i<mon->monmap->size(); ++i) {
     if ((int)i == mon->rank) continue;
-    MMonElection *m =
+    MMonElection *m = // 向所有的 monitor peers 发送 MSG_MON_ELECTION propose 消息
       new MMonElection(MMonElection::OP_PROPOSE, e,
 		       peer_tracker.get_encoded_bl(),
 		       logic.strategy, mon->monmap);
@@ -172,7 +172,7 @@ void Elector::_start()
   reset_timer();
 }
 
-void Elector::_defer_to(int who)
+void Elector::_defer_to(int who) // 投票给 who
 {
   MMonElection *m = new MMonElection(MMonElection::OP_ACK, get_epoch(),
 				     peer_tracker.get_encoded_bl(),
@@ -254,7 +254,7 @@ void Elector::message_victory(const std::set<int>& quorum)
   for (set<int>::iterator p = quorum.begin();
        p != quorum.end();
        ++p) {
-    if (*p == mon->rank) continue;
+    if (*p == mon->rank) continue; // 向 quorum 中的每个 peer 发送 OP_VICTORY 消息。其中 op 为 MMonElection::OP_VICTORY，message  type 为 MSG_MON_ELECTION
     MMonElection *m = new MMonElection(MMonElection::OP_VICTORY, get_epoch(),
 				       peer_tracker.get_encoded_bl(),
 				       logic.strategy, mon->monmap);
@@ -368,7 +368,7 @@ void Elector::handle_ack(MonOpRequestRef op)
   logic.receive_ack(from, m->epoch);
 }
 
-void Elector::handle_victory(MonOpRequestRef op)
+void Elector::handle_victory(MonOpRequestRef op) // peer 收到 leader 发送的 MMonElection::OP_VICTORY 消息
 {
   op->mark_event("elector:handle_victory");
   auto m = op->get_req<MMonElection>();
@@ -468,7 +468,7 @@ void Elector::begin_peer_ping(int peer)
   live_pinging.insert(peer);
   dead_pinging.erase(peer);
   peer_acked_ping[peer] = ceph_clock_now();
-  if (!send_peer_ping(peer)) return;
+  if (!send_peer_ping(peer)) return; // 向 peer 发送 ping 消息
   mon->timer.add_event_after(ping_timeout / PING_DIVISOR,
 			     new C_MonContext{mon, [this, peer](int) {
 				 ping_check(peer);
@@ -642,23 +642,23 @@ void Elector::dispatch(MonOpRequestRef op)
 
       MonMap peermap;
       peermap.decode(em->monmap_bl);
-      if (peermap.epoch > mon->monmap->epoch) {
-	dout(0) << em->get_source_inst() << " has newer monmap epoch " << peermap.epoch
-		<< " > my epoch " << mon->monmap->epoch 
-		<< ", taking it"
-		<< dendl;
-	mon->monmap->decode(em->monmap_bl);
-        auto t(std::make_shared<MonitorDBStore::Transaction>());
-        t->put("monmap", mon->monmap->epoch, em->monmap_bl);
-        t->put("monmap", "last_committed", mon->monmap->epoch);
-        mon->store->apply_transaction(t);
-	//mon->monmon()->paxos->stash_latest(mon->monmap->epoch, em->monmap_bl);
-	cancel_timer();
-	mon->notify_new_monmap(false);
-	mon->bootstrap();
-	return;
+      if (peermap.epoch > mon->monmap->epoch) { // 如果 peer 端的 epoch 更大
+        dout(0) << em->get_source_inst() << " has newer monmap epoch " << peermap.epoch
+            << " > my epoch " << mon->monmap->epoch 
+            << ", taking it"
+            << dendl;
+        mon->monmap->decode(em->monmap_bl);
+            auto t(std::make_shared<MonitorDBStore::Transaction>()); // 更新 store 记录
+            t->put("monmap", mon->monmap->epoch, em->monmap_bl);
+            t->put("monmap", "last_committed", mon->monmap->epoch);
+            mon->store->apply_transaction(t);
+        //mon->monmon()->paxos->stash_latest(mon->monmap->epoch, em->monmap_bl);
+        cancel_timer();
+        mon->notify_new_monmap(false);
+        mon->bootstrap();
+        return;
       }
-      if (peermap.epoch < mon->monmap->epoch) {
+      if (peermap.epoch < mon->monmap->epoch) { // peer 端 epoch 更小则直接忽略
 	dout(0) << em->get_source_inst() << " has older monmap epoch " << peermap.epoch
 		<< " < my epoch " << mon->monmap->epoch 
 		<< dendl;
@@ -678,27 +678,27 @@ void Elector::dispatch(MonOpRequestRef op)
       begin_peer_ping(mon->monmap->get_rank(em->get_source_addr()));
       switch (em->op) {
       case MMonElection::OP_PROPOSE:
-	handle_propose(op);
-	return;
+        handle_propose(op); // 处理 propose 消息
+        return;
       }
 
       if (em->epoch < get_epoch()) {
-	dout(5) << "old epoch, dropping" << dendl;
-	break;
+        dout(5) << "old epoch, dropping" << dendl;
+        break;
       }
 
       switch (em->op) {
       case MMonElection::OP_ACK:
-	handle_ack(op);
-	return;
+        handle_ack(op);
+        return;
       case MMonElection::OP_VICTORY:
-	handle_victory(op);
-	return;
+        handle_victory(op);
+        return;
       case MMonElection::OP_NAK:
-	handle_nak(op);
-	return;
+        handle_nak(op);
+        return;
       default:
-	ceph_abort();
+        ceph_abort();
       }
     }
     break;

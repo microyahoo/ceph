@@ -158,7 +158,7 @@ Monitor::Monitor(CephContext* cct_, string nm, MonitorDBStore *s, // ? db store
   Dispatcher(cct_),
   AuthServer(cct_),
   name(nm),
-  rank(-1), 
+  rank(-1),  // 初始化为 -1
   messenger(m),
   con_self(m ? m->get_loopback_connection() : NULL),
   timer(cct_, lock),
@@ -179,8 +179,8 @@ Monitor::Monitor(CephContext* cct_, string nm, MonitorDBStore *s, // ? db store
   mgr_client(cct_, mgr_m, monmap),
   gss_ktfile_client(cct->_conf.get_val<std::string>("gss_ktab_client_file")),
   store(s),
-  
-  elector(this, map->strategy),
+
+  elector(this, map->strategy), // 初始化 elector，会设置 strategy
   required_features(0),
   leader(0),
   quorum_con_features(0),
@@ -238,7 +238,7 @@ Monitor::Monitor(CephContext* cct_, string nm, MonitorDBStore *s, // ? db store
       g_conf().get_val<std::chrono::seconds>("mon_op_history_slow_op_threshold").count());
 
   paxos = std::make_unique<Paxos>(*this, "paxos");
-
+  // 所有的 paxos 服务
   paxos_service[PAXOS_MDSMAP].reset(new MDSMonitor(*this, *paxos, "mdsmap"));
   paxos_service[PAXOS_MONMAP].reset(new MonmapMonitor(*this, *paxos, "monmap"));
   paxos_service[PAXOS_OSDMAP].reset(new OSDMonitor(cct, *this, *paxos, "osdmap"));
@@ -799,7 +799,7 @@ int Monitor::preinit()
   read_features();
 
   // have we ever joined a quorum?
-  has_ever_joined = (store->get(MONITOR_NAME, "joined") != 0);
+  has_ever_joined = (store->get(MONITOR_NAME, "joined") != 0); // 从 db 中读取 monitor joined 信息，用于判断是否加入 quorum
   dout(10) << "has_ever_joined = " << (int)has_ever_joined << dendl;
 
   if (!has_ever_joined) {
@@ -853,7 +853,7 @@ int Monitor::preinit()
   sync_last_committed_floor = store->get("mon_sync", "last_committed_floor");
   dout(10) << "sync_last_committed_floor " << sync_last_committed_floor << dendl;
 
-  init_paxos();
+  init_paxos(); // 初始化 paxos
 
   if (is_keyring_required()) {
     // we need to bootstrap authentication keys so we can form an
@@ -948,7 +948,7 @@ int Monitor::init()
   mgr_messenger->add_dispatcher_tail(this);  // for auth ms_* calls
   mgrmon()->prime_mgr_client();
 
-  state = STATE_PROBING;
+  state = STATE_PROBING; // monitor 的状态初始化为 probing
 
   bootstrap();
 
@@ -970,7 +970,7 @@ void Monitor::init_paxos()
 
   // init services
   for (auto& svc : paxos_service) {
-    svc->init();
+    svc->init(); // 初始化 paxos service
   }
 
   refresh_from_paxos(NULL);
@@ -981,7 +981,7 @@ void Monitor::refresh_from_paxos(bool *need_bootstrap)
   dout(10) << __func__ << dendl;
 
   bufferlist bl;
-  int r = store->get(MONITOR_NAME, "cluster_fingerprint", bl);
+  int r = store->get(MONITOR_NAME, "cluster_fingerprint", bl); // 从 store 中获取 monitor cluster_fingerprint
   if (r >= 0) {
     try {
       auto p = bl.cbegin();
@@ -995,10 +995,10 @@ void Monitor::refresh_from_paxos(bool *need_bootstrap)
   }
 
   for (auto& svc : paxos_service) {
-    svc->refresh(need_bootstrap);
+    svc->refresh(need_bootstrap); // refresh paxos service
   }
   for (auto& svc : paxos_service) {
-    svc->post_refresh();
+    svc->post_refresh(); // post refresh paxos service
   }
   load_metadata();
 }
@@ -1224,7 +1224,7 @@ void Monitor::bootstrap()
   if (newrank != rank) {
     dout(0) << " my rank is now " << newrank << " (was " << rank << ")" << dendl;
     messenger->set_myname(entity_name_t::MON(newrank));
-    rank = newrank;
+    rank = newrank; // 更新 rank
     elector.notify_rank_changed(rank);
 
     // reset all connections, or else our peers will think we are someone else.
@@ -1232,12 +1232,12 @@ void Monitor::bootstrap()
   }
 
   // reset
-  state = STATE_PROBING;
+  state = STATE_PROBING; // 设置 monitor 状态为 probing
 
-  _reset();
+  _reset(); // 重置 monitor
 
   // sync store
-  if (g_conf()->mon_compact_on_bootstrap) {
+  if (g_conf()->mon_compact_on_bootstrap) { // bootstrap 时是否需要进行 store compact
     dout(10) << "bootstrap -- triggering compaction" << dendl;
     store->compact();
     dout(10) << "bootstrap -- finished compaction" << dendl;
@@ -1247,7 +1247,7 @@ void Monitor::bootstrap()
   set_elector_disallowed_leaders(false);
 
   // singleton monitor?
-  if (monmap->size() == 1 && rank == 0) {
+  if (monmap->size() == 1 && rank == 0) { // 如果只有一个 monitor, 则没有必要联系其他的 monitor 进行 leader 选举
     win_standalone_election();
     return;
   }
@@ -1256,23 +1256,23 @@ void Monitor::bootstrap()
 
   // i'm outside the quorum
   if (monmap->contains(name))
-    outside_quorum.insert(name);
+    outside_quorum.insert(name); // 将自己加入 outside_quorum 列表
 
   // probe monitors
   dout(10) << "probing other monitors" << dendl;
   for (unsigned i = 0; i < monmap->size(); i++) {
     if ((int)i != rank)
-      send_mon_message(
-	new MMonProbe(monmap->fsid, MMonProbe::OP_PROBE, name, has_ever_joined,
-		      ceph_release()),
-	i);
+      send_mon_message( // 向其他 monitor 发送 probe 消息, 消息类型为 MSG_MON_PROBE
+        new MMonProbe(monmap->fsid, MMonProbe::OP_PROBE, name, has_ever_joined,
+		    ceph_release()),
+            i);
   }
   for (auto& av : extra_probe_peers) {
     if (av != messenger->get_myaddrs()) {
       messenger->send_to_mon(
-	new MMonProbe(monmap->fsid, MMonProbe::OP_PROBE, name, has_ever_joined,
+        new MMonProbe(monmap->fsid, MMonProbe::OP_PROBE, name, has_ever_joined,
 		      ceph_release()),
-	av);
+              av);
     }
   }
 }
@@ -1361,10 +1361,10 @@ void Monitor::_reset()
 
   scrub_reset();
 
-  paxos->restart();
+  paxos->restart(); // restart paxos
 
   for (auto& svc : paxos_service) {
-    svc->restart();
+    svc->restart(); // restart paxos service
   }
 }
 
@@ -2153,12 +2153,12 @@ void Monitor::handle_probe_reply(MonOpRequestRef op)
       return;
     }
 
-    unsigned need = monmap->min_quorum_size();
+    unsigned need = monmap->min_quorum_size(); // 大于半数
     dout(10) << " outside_quorum now " << outside_quorum << ", need " << need << dendl;
     if (outside_quorum.size() >= need) {
       if (outside_quorum.count(name)) {
         dout(10) << " that's enough to form a new quorum, calling election" << dendl;
-        start_election();
+        start_election(); // 如果 outside quorum 数大于等于最小 quorum 大小，则开始选举
       } else {
         dout(10) << " that's enough to form a new quorum, but it does not include me; waiting" << dendl;
       }
@@ -2173,7 +2173,7 @@ void Monitor::join_election()
   dout(10) << __func__ << dendl;
   wait_for_paxos_write();
   _reset();
-  state = STATE_ELECTING;
+  state = STATE_ELECTING; // monitor 状态切换为 electing
 
   logger->inc(l_mon_num_elections);
 }
@@ -2183,7 +2183,7 @@ void Monitor::start_election()
   dout(10) << "start_election" << dendl;
   wait_for_paxos_write();
   _reset();
-  state = STATE_ELECTING;
+  state = STATE_ELECTING; // monitor 状态变为 electing
 
   logger->inc(l_mon_num_elections);
   logger->inc(l_mon_election_call);
@@ -2234,7 +2234,7 @@ void Monitor::_finish_svc_election()
     // we already called election_finished() on monmon(); avoid callig twice
     if (state == STATE_LEADER && svc.get() == monmon())
       continue;
-    svc->election_finished();
+    svc->election_finished(); // 遍历 paxos service，依次调用 election_finished
   }
 }
 
@@ -2249,16 +2249,16 @@ void Monitor::win_election(epoch_t epoch, const set<int>& active, uint64_t featu
 	   << " min_mon_release " << min_mon_release
            << dendl;
   ceph_assert(is_electing());
-  state = STATE_LEADER;
+  state = STATE_LEADER; // 将 monitor state 改为 leader
   leader_since = ceph_clock_now();
   quorum_since = mono_clock::now();
-  leader = rank;
-  quorum = active;
+  leader = rank; // 设置当前 leader
+  quorum = active; // 设置当前 quorum set
   quorum_con_features = features;
   quorum_mon_features = mon_features;
   quorum_min_mon_release = min_mon_release;
   pending_metadata = metadata;
-  outside_quorum.clear();
+  outside_quorum.clear(); // 清空 outside_quorum
 
   clog->info() << "mon." << name << " is new leader, mons " << get_quorum_names()
       << " in quorum (ranks " << quorum << ")";
@@ -2284,7 +2284,7 @@ void Monitor::win_election(epoch_t epoch, const set<int>& active, uint64_t featu
     for (unsigned rank = 0; rank < monmap->size(); ++rank) {
       if (m.count(rank) == 0 &&
 	  mon_metadata.count(rank)) {
-	m[rank] = mon_metadata[rank];
+        m[rank] = mon_metadata[rank];
       }
     }
 
@@ -2294,7 +2294,7 @@ void Monitor::win_election(epoch_t epoch, const set<int>& active, uint64_t featu
     MonitorDBStore::TransactionRef t = paxos->get_pending_transaction();
     bufferlist bl;
     encode(m, bl);
-    t->put(MONITOR_STORE_PREFIX, "last_metadata", bl);
+    t->put(MONITOR_STORE_PREFIX, "last_metadata", bl); // 将 monitor_store last_metadata 写入 store
   }
 
   finish_election();
@@ -2330,12 +2330,12 @@ void Monitor::lose_election(epoch_t epoch, set<int> &q, int l,
                             const mon_feature_t& mon_features,
 			    ceph_release_t min_mon_release)
 {
-  state = STATE_PEON;
+  state = STATE_PEON; // 修改 monitor 状态为 peon
   leader_since = utime_t();
   quorum_since = mono_clock::now();
-  leader = l;
-  quorum = q;
-  outside_quorum.clear();
+  leader = l; // 更新 leader
+  quorum = q; // 更新 quorum
+  outside_quorum.clear(); // 清空 outside_quorum
   quorum_con_features = features;
   quorum_mon_features = mon_features;
   quorum_min_mon_release = min_mon_release;
@@ -4666,7 +4666,7 @@ void Monitor::dispatch_op(MonOpRequestRef op)
       handle_route(op);
       return;
 
-    case MSG_MON_PROBE:
+    case MSG_MON_PROBE: // 接收到 Monitor::bootstrap 中发送的 MMonProbe 消息
       handle_probe(op);
       return;
 
@@ -4725,7 +4725,7 @@ void Monitor::dispatch_op(MonOpRequestRef op)
     case MSG_MON_ELECTION:
       op->set_type_election_or_ping();
       //check privileges here for simplicity
-      if (!op->get_session()->is_capable("mon", MON_CAP_X)) {
+      if (!op->get_session()->is_capable("mon", MON_CAP_X)) { // 是否有可执行权限
         dout(0) << "MMonElection received from entity without enough caps!"
           << op->get_session()->caps << dendl;
         return;;
@@ -5413,7 +5413,7 @@ void Monitor::handle_mon_get_map(MonOpRequestRef op)
 int Monitor::load_metadata()
 {
   bufferlist bl;
-  int r = store->get(MONITOR_STORE_PREFIX, "last_metadata", bl);
+  int r = store->get(MONITOR_STORE_PREFIX, "last_metadata", bl); // 从 store 中获取 monitor_store last_metadata
   if (r)
     return r;
   auto it = bl.cbegin();
@@ -5902,7 +5902,7 @@ void Monitor::tick()
     finish_contexts(g_ceph_context, maybe_wait_for_quorum);
   }
 
-  if (is_leader() && paxos->is_active() && fingerprint.is_zero()) {
+  if (is_leader() && paxos->is_active() && fingerprint.is_zero()) { // fingerprint 为空
     // this is only necessary on upgraded clusters.
     MonitorDBStore::TransactionRef t = paxos->get_pending_transaction();
     prepare_new_fingerprint(t);
@@ -5954,7 +5954,7 @@ void Monitor::prepare_new_fingerprint(MonitorDBStore::TransactionRef t)
 
   bufferlist bl;
   encode(nf, bl);
-  t->put(MONITOR_NAME, "cluster_fingerprint", bl);
+  t->put(MONITOR_NAME, "cluster_fingerprint", bl); // 生成一个随机数，然后持久化到 store 的 monitor cluster_fingerprint
 }
 
 int Monitor::check_fsid()
@@ -6005,7 +6005,7 @@ int Monitor::write_fsid(MonitorDBStore::TransactionRef t)
   bufferlist b;
   b.append(us);
 
-  t->put(MONITOR_NAME, "cluster_uuid", b);
+  t->put(MONITOR_NAME, "cluster_uuid", b); // 写入 monitor cluster_uuid 信息
   return 0;
 }
 
@@ -6023,9 +6023,9 @@ int Monitor::mkfs(bufferlist& osdmapbl)
     return r;
 
   bufferlist magicbl;
-  magicbl.append(CEPH_MON_ONDISK_MAGIC);
+  magicbl.append(CEPH_MON_ONDISK_MAGIC); 
   magicbl.append("\n");
-  t->put(MONITOR_NAME, "magic", magicbl);
+  t->put(MONITOR_NAME, "magic", magicbl);// 记录 mon magic number, 即写入 monitor magic 信息
 
 
   features = get_initial_supported_features();
@@ -6035,7 +6035,7 @@ int Monitor::mkfs(bufferlist& osdmapbl)
   bufferlist monmapbl;
   monmap->encode(monmapbl, CEPH_FEATURES_ALL);
   monmap->set_epoch(0);     // must be 0 to avoid confusing first MonmapMonitor::update_from_paxos()
-  t->put("mkfs", "monmap", monmapbl);
+  t->put("mkfs", "monmap", monmapbl); // 记录 mkfs monmap 信息
 
   if (osdmapbl.length()) {
     // make sure it's a valid osdmap
@@ -6047,7 +6047,7 @@ int Monitor::mkfs(bufferlist& osdmapbl)
       derr << "error decoding provided osdmap: " << e.what() << dendl;
       return -EINVAL;
     }
-    t->put("mkfs", "osdmap", osdmapbl);
+    t->put("mkfs", "osdmap", osdmapbl); // 记录 mkfs osdmap 信息
   }
 
   if (is_keyring_required()) {
@@ -6088,9 +6088,9 @@ int Monitor::mkfs(bufferlist& osdmapbl)
 
     bufferlist keyringbl;
     keyring.encode_plaintext(keyringbl);
-    t->put("mkfs", "keyring", keyringbl);
+    t->put("mkfs", "keyring", keyringbl); // 写入 mkfs keyring 信息
   }
-  write_fsid(t);
+  write_fsid(t); // 写 fsid
   store->apply_transaction(t);
 
   return 0;

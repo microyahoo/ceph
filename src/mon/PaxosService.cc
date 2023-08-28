@@ -143,7 +143,7 @@ bool PaxosService::dispatch(MonOpRequestRef op)
 void PaxosService::refresh(bool *need_bootstrap)
 {
   // update cached versions
-  cached_first_committed = mon.store->get(get_service_name(), first_committed_name);
+  cached_first_committed = mon.store->get(get_service_name(), first_committed_name); // 从 store 获取 paxos service 的 first_committed  和 last_committed
   cached_last_committed = mon.store->get(get_service_name(), last_committed_name);
 
   version_t new_format = get_value("format_version");

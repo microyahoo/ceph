@@ -121,7 +121,7 @@ public:
   virtual bool ms_dispatch2(const MessageRef &m) {
     /* allow old style dispatch handling that expects a Message * with a floating ref */
     MessageRef mr(m);
-    if (ms_dispatch(mr.get())) {
+    if (ms_dispatch(mr.get())) { // 在 Dispatcher 继承类中进行处理
       mr.detach(); /* dispatcher consumed ref */
       return true;
     }

@@ -78,8 +78,9 @@ void Paxos::read_and_prepare_transactions(MonitorDBStore::TransactionRef tx,
 void Paxos::init()
 {
   // load paxos variables from stable storage
-  last_pn = get_store()->get(get_name(), "last_pn");
-  accepted_pn = get_store()->get(get_name(), "accepted_pn");
+  last_pn = get_store()->get(get_name(), "last_pn"); // 从 store 中读取 paxos last_pn
+  accepted_pn = get_store()->get(get_name(), "accepted_pn");// 从 store 中读取 paxos accepted_pn
+
   last_committed = get_store()->get(get_name(), "last_committed");
   first_committed = get_store()->get(get_name(), "first_committed");
 
@@ -188,7 +189,7 @@ void Paxos::collect(version_t oldpn)
   }
 
   // pick new pn
-  accepted_pn = get_new_proposal_number(std::max(accepted_pn, oldpn));
+  accepted_pn = get_new_proposal_number(std::max(accepted_pn, oldpn)); // 获取新的提案号
   accepted_pn_from = last_committed;
   num_last = 1;
   dout(10) << "collect with pn " << accepted_pn << dendl;
@@ -255,7 +256,7 @@ void Paxos::handle_collect(MonOpRequestRef op)
   version_t previous_pn = accepted_pn;
 
   // can we accept this pn?
-  if (collect->pn > accepted_pn) {
+  if (collect->pn > accepted_pn) { // 如果对端的提案号更大
     // ok, accept it
     accepted_pn = collect->pn;
     accepted_pn_from = collect->pn_from;
@@ -263,7 +264,7 @@ void Paxos::handle_collect(MonOpRequestRef op)
 	     << accepted_pn_from << dendl;
   
     auto t(std::make_shared<MonitorDBStore::Transaction>());
-    t->put(get_name(), "accepted_pn", accepted_pn);
+    t->put(get_name(), "accepted_pn", accepted_pn); // 将新的提案号持久化到 store 的 paxos accepted_pn
 
     dout(30) << __func__ << " transaction dump:\n";
     JSONFormatter f(true);
@@ -320,7 +321,7 @@ void Paxos::handle_collect(MonOpRequestRef op)
   }
 
   // send reply
-  collect->get_connection()->send_message(last);
+  collect->get_connection()->send_message(last); // 给对端回复 MMonPaxos::OP_LAST 消息
 }
 
 /**
@@ -481,7 +482,7 @@ void Paxos::handle_last(MonOpRequestRef op)
 
   // note peer's first_ and last_committed, in case we learn a new
   // commit and need to push it to them.
-  peer_first_committed[from] = last->first_committed;
+  peer_first_committed[from] = last->first_committed; // 记录下对端的 first committed 和 last committed
   peer_last_committed[from] = last->last_committed;
 
   if (last->first_committed > last_committed + 1) {
@@ -516,10 +517,10 @@ void Paxos::handle_last(MonOpRequestRef op)
       mon.bootstrap();
       return;
     }
-    if (p->second < last_committed) {
+    if (p->second < last_committed) { // 如果对端的 last_committed 比 leader 的小
       // share committed values
       dout(10) << " sending commit to mon." << p->first << dendl;
-      MMonPaxos *commit = new MMonPaxos(mon.get_epoch(),
+      MMonPaxos *commit = new MMonPaxos(mon.get_epoch(), // 发送 op_commit 消息到对端 monitor
 					MMonPaxos::OP_COMMIT,
 					ceph_clock_now());
       share_state(commit, peer_first_committed[p->first], p->second);
@@ -528,16 +529,16 @@ void Paxos::handle_last(MonOpRequestRef op)
   }
 
   // do they accept your pn?
-  if (last->pn > accepted_pn) {
+  if (last->pn > accepted_pn) { // 对端的提案号更大，拒绝接收提案
     // no, try again.
     dout(10) << " they had a higher pn than us, picking a new one." << dendl;
 
     // cancel timeout event
-    mon.timer.cancel_event(collect_timeout_event);
+    mon.timer.cancel_event(collect_timeout_event); // 从定时器中移除 collect_timeout_event
     collect_timeout_event = 0;
 
     collect(last->pn);
-  } else if (last->pn == accepted_pn) {
+  } else if (last->pn == accepted_pn) { // 对端接受提案
     // yes, they accepted our pn.  great.
     num_last++;
     dout(10) << " they accepted our pn, we now have " 
@@ -564,9 +565,9 @@ void Paxos::handle_last(MonOpRequestRef op)
     }
     
     // is that everyone?
-    if (num_last == mon.get_quorum().size()) {
+    if (num_last == mon.get_quorum().size()) { // 如果同意提案号的个数等于 quorum 大小
       // cancel timeout event
-      mon.timer.cancel_event(collect_timeout_event);
+      mon.timer.cancel_event(collect_timeout_event); // 取消 collect timeout 事件回调
       collect_timeout_event = 0;
       peer_first_committed.clear();
       peer_last_committed.clear();
@@ -576,18 +577,18 @@ void Paxos::handle_last(MonOpRequestRef op)
       // did we learn an old value?
       if (uncommitted_v == last_committed+1 &&
 	  uncommitted_value.length()) {
-	dout(10) << "that's everyone.  begin on old learned value" << dendl;
-	state = STATE_UPDATING_PREVIOUS;
-	begin(uncommitted_value);
+        dout(10) << "that's everyone.  begin on old learned value" << dendl;
+        state = STATE_UPDATING_PREVIOUS;
+        begin(uncommitted_value);
       } else {
-	// active!
-	dout(10) << "that's everyone.  active!" << dendl;
-	extend_lease();
+        // active!
+        dout(10) << "that's everyone.  active!" << dendl;
+        extend_lease(); // 续租约
 
-	need_refresh = false;
-	if (do_refresh()) {
-	  finish_round();
-	}
+        need_refresh = false;
+        if (do_refresh()) {
+          finish_round();
+        }
       }
     }
   } else {
@@ -981,13 +982,13 @@ void Paxos::extend_lease()
   acked_lease.clear();
   acked_lease.insert(mon.rank);
 
-  dout(7) << "extend_lease now+" << g_conf()->mon_lease
+  dout(7) << "extend_lease now+" << g_conf()->mon_lease // 默认 5s
 	  << " (" << lease_expire << ")" << dendl;
 
   // bcast
   for (auto p = mon.get_quorum().begin();
       p != mon.get_quorum().end(); ++p) {
-
+// 向所有的 peer monitor 广播 MMonPaxos::OP_LEASE 消息 。其中 op 为 MMonPaxos::OP_LEASE，message  type 为 MSG_MON_PAXOS
     if (*p == mon.rank) continue;
     MMonPaxos *lease = new MMonPaxos(mon.get_epoch(), MMonPaxos::OP_LEASE,
 				     ceph_clock_now());
@@ -1005,7 +1006,7 @@ void Paxos::extend_lease()
       new C_MonContext{&mon, [this](int r) {
 	  if (r == -ECANCELED)
 	    return;
-	  lease_ack_timeout();
+	  lease_ack_timeout(); // 超时后重新发起 bootstrap
 	}});
   }
 
@@ -1018,7 +1019,7 @@ void Paxos::extend_lease()
     at, new C_MonContext{&mon, [this](int r) {
 	if (r == -ECANCELED)
 	  return;
-	lease_renew_timeout();
+	lease_renew_timeout(); // 定时 extend_lease
     }});
 }
 
@@ -1117,11 +1118,11 @@ void Paxos::handle_lease(MonOpRequestRef op)
   // extend lease
   if (auto new_expire = lease->lease_timestamp.to_real_time();
       lease_expire < new_expire) {
-    lease_expire = new_expire;
+    lease_expire = new_expire; // 更新 lease
 
     auto now = ceph::real_clock::now();
     if (lease_expire < now) {
-      auto diff = now - lease_expire;
+      auto diff = now - lease_expire; // 可能出现了时钟偏移
       derr << "lease_expire from " << lease->get_source_inst() << " is " << diff << " seconds in the past; mons are probably laggy (or possibly clocks are too skewed)" << dendl;
     }
   }
@@ -1131,7 +1132,7 @@ void Paxos::handle_lease(MonOpRequestRef op)
   dout(10) << "handle_lease on " << lease->last_committed
 	   << " now " << lease_expire << dendl;
 
-  // ack
+  // ack 给对端回复 OP_LEASE_ACK 消息
   MMonPaxos *ack = new MMonPaxos(mon.get_epoch(), MMonPaxos::OP_LEASE_ACK,
 				 ceph_clock_now());
   ack->last_committed = last_committed;
@@ -1166,12 +1167,12 @@ void Paxos::handle_lease_ack(MonOpRequestRef op)
       FeatureMap& t = mon.quorum_feature_map[from];
       decode(t, p);
     }
-    if (acked_lease == mon.get_quorum()) {
+    if (acked_lease == mon.get_quorum()) { // 收到所有 quorum 的 ack
       // yay!
       dout(10) << "handle_lease_ack from " << ack->get_source()
 	       << " -- got everyone" << dendl;
       mon.timer.cancel_event(lease_ack_timeout_event);
-      lease_ack_timeout_event = 0;
+      lease_ack_timeout_event = 0; // 将 lease_ack_timeout_event 置为空
 
 
     } else {
@@ -1201,14 +1202,14 @@ void Paxos::lease_ack_timeout()
 void Paxos::reset_lease_timeout()
 {
   dout(20) << "reset_lease_timeout - setting timeout event" << dendl;
-  if (lease_timeout_event)
+  if (lease_timeout_event) // 重置 peon lease timeout event 回调
     mon.timer.cancel_event(lease_timeout_event);
   lease_timeout_event = mon.timer.add_event_after(
     g_conf()->mon_lease_ack_timeout_factor * g_conf()->mon_lease,
     new C_MonContext{&mon, [this](int r) {
-	if (r == -ECANCELED)
-	  return;
-	lease_timeout();
+        if (r == -ECANCELED)
+          return;
+        lease_timeout(); // 即超时之后发起新的选举
       }});
 }
 
@@ -1274,7 +1275,7 @@ version_t Paxos::get_new_proposal_number(version_t gt)
 
   // write
   auto t(std::make_shared<MonitorDBStore::Transaction>());
-  t->put(get_name(), "last_pn", last_pn);
+  t->put(get_name(), "last_pn", last_pn); // 写入 paxos last_pn 到 store
 
   dout(30) << __func__ << " transaction dump:\n";
   JSONFormatter f(true);
@@ -1365,7 +1366,7 @@ void Paxos::leader_init()
   state = STATE_RECOVERING;
   lease_expire = {};
   dout(10) << "leader_init -- starting paxos recovery" << dendl;
-  collect(0);
+  collect(0); // 很重要的一个方法
 }
 
 void Paxos::peon_init()

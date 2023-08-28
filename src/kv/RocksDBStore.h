@@ -87,7 +87,7 @@ class RocksDBStore : public KeyValueDB {
   const rocksdb::Comparator* comparator;
   std::shared_ptr<rocksdb::Statistics> dbstats;
   rocksdb::BlockBasedTableOptions bbt_opts;
-  std::string options_str;
+  std::string options_str; // rocksdb 选项
 
   uint64_t cache_size = 0;
   bool set_cache_flag = false;

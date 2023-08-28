@@ -169,7 +169,7 @@ private:
 
   // -- local storage --
 public:
-  MonitorDBStore *store;
+  MonitorDBStore *store; // rocksdb 存储
   static const std::string MONITOR_NAME;
   static const std::string MONITOR_STORE_PREFIX;
 
@@ -259,7 +259,7 @@ private:
 
   ceph_release_t quorum_min_mon_release{ceph_release_t::unknown};
 
-  std::set<std::string> outside_quorum;
+  std::set<std::string> outside_quorum; // 新加入集群的节点, 用于节点选举
 
   bool stretch_mode_engaged{false};
   bool degraded_stretch_mode{false};

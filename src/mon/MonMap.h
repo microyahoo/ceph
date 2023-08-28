@@ -159,7 +159,7 @@ class MonMap {
     DISALLOW = 2, // disallow a set from being leader
     CONNECTIVITY = 3 // includes DISALLOW, extends to prefer stronger connections
   };
-  election_strategy strategy = CLASSIC;
+  election_strategy strategy = CLASSIC; // 默认值 CLASSIC
   std::set<std::string> disallowed_leaders; // can't be leader under CONNECTIVITY/DISALLOW
   bool stretch_mode_enabled = false;
   string tiebreaker_mon;
