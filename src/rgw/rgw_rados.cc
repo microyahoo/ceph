@@ -1840,7 +1840,7 @@ int RGWRados::Bucket::List::list_objects_ordered(
 					   read_ahead + 1 - count,
 					   params.list_versions,
 					   attempt,
-					   ent_map,
+					   ent_map, // 索引数据保存在 ent_map
 					   &truncated,
 					   &cls_filtered,
 					   &cur_marker,
@@ -1901,7 +1901,7 @@ int RGWRados::Bucket::List::list_objects_ordered(
         continue;
       }
 
-      if (params.prefix.size() &&
+      if (params.prefix.size() && // 比较前缀
 	  0 != obj.name.compare(0, params.prefix.size(), params.prefix)) {
         continue;
       }
@@ -1971,7 +1971,7 @@ int RGWRados::Bucket::List::list_objects_ordered(
       ldpp_dout(dpp, 20) << "RGWRados::Bucket::List::" << __func__ <<
 	" adding entry " << entry.key << " to result" << dendl;
 
-      result->emplace_back(std::move(entry));
+      result->emplace_back(std::move(entry)); // 将 entry 加入 result 中
       count++;
     } // eiter for loop
 
@@ -2305,13 +2305,13 @@ int RGWRados::create_bucket(const RGWUserInfo& owner, rgw_bucket& bucket,
 }
 
 bool RGWRados::get_obj_data_pool(const rgw_placement_rule& placement_rule, const rgw_obj& obj, rgw_pool *pool)
-{
+{ // 设置 obj 和 数据池 pool
   return rgw_get_obj_data_pool(svc.zone->get_zonegroup(), svc.zone->get_zone_params(), placement_rule, obj, pool);
 }
 
 bool RGWRados::obj_to_raw(const rgw_placement_rule& placement_rule, const rgw_obj& obj, rgw_raw_obj *raw_obj)
 {
-  get_obj_bucket_and_oid_loc(obj, raw_obj->oid, raw_obj->loc);
+  get_obj_bucket_and_oid_loc(obj, raw_obj->oid, raw_obj->loc); // 设置 raw_obj->oid
 
   return get_obj_data_pool(placement_rule, obj, &raw_obj->pool);
 }
@@ -3096,7 +3096,7 @@ int RGWRados::Object::Write::_do_write_meta(const DoutPrefixProvider *dpp,
 
     bufferlist bl;
     encode(*meta.manifest, bl);
-    op.setxattr(RGW_ATTR_MANIFEST, bl);
+    op.setxattr(RGW_ATTR_MANIFEST, bl); // 写 manifest 属性
   }
 
   for (iter = attrs.begin(); iter != attrs.end(); ++iter) {
@@ -5343,10 +5343,10 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *rc
 
   bool need_follow_olh = follow_olh && obj.key.instance.empty();
 
-  RGWObjState *s = rctx->get_state(obj);
+  RGWObjState *s = rctx->get_state(obj); // 这里会判断 obj 对应的 state 是否存在, 相当于缓存
   ldpp_dout(dpp, 20) << "get_obj_state: rctx=" << (void *)rctx << " obj=" << obj << " state=" << (void *)s << " s->prefetch_data=" << s->prefetch_data << dendl;
   *state = s;
-  if (s->has_attrs) {
+  if (s->has_attrs) { // 如果已经获取到 attrs 了会直接返回
     if (s->is_olh && need_follow_olh) {
       return get_olh_target_state(dpp, *rctx, bucket_info, obj, s, state, y);
     }
@@ -5360,7 +5360,7 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *rc
 
   int r = -ENOENT;
 
-  if (!assume_noent) {
+  if (!assume_noent) { // 注意这里会读取 head obj 的所有 attrs，然后赋值给 s->attrset
     r = RGWRados::raw_obj_stat(dpp, raw_obj, &s->size, &s->mtime, &s->epoch, &s->attrset, (s->prefetch_data ? &s->data : NULL), NULL, y);
   }
 
@@ -5430,7 +5430,7 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *rc
     auto miter = manifest_bl.cbegin();
     try {
       s->manifest.emplace();
-      decode(*s->manifest, miter);
+      decode(*s->manifest, miter); // 设置 manifest
       s->manifest->set_head(bucket_info.placement_rule, obj, s->size); /* patch manifest to reflect the head we just read, some manifests might be
                                              broken due to old bugs */
       s->size = s->manifest->get_obj_size();
@@ -6456,7 +6456,7 @@ int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp, // get object �
         obj_ofs < astate->data.length()) {
       unsigned chunk_len = std::min((uint64_t)astate->data.length() - obj_ofs, (uint64_t)len);
 
-      r = d->client_cb->handle_data(astate->data, obj_ofs, chunk_len);
+      r = d->client_cb->handle_data(astate->data, obj_ofs, chunk_len); // 调用客户端回调函数
       if (r < 0)
         return r;
 
@@ -6469,7 +6469,7 @@ int RGWRados::get_obj_iterate_cb(const DoutPrefixProvider *dpp, // get object �
     }
   }
 
-  auto obj = d->store->svc.rados->obj(read_obj);
+  auto obj = d->store->svc.rados->obj(read_obj); // 从 rados 中读取分段对象
   int r = obj.open(dpp);
   if (r < 0) {
     ldpp_dout(dpp, 4) << "failed to open rados context for " << read_obj << dendl;
@@ -6493,12 +6493,12 @@ int RGWRados::Object::Read::iterate(const DoutPrefixProvider *dpp, int64_t ofs, 
   RGWRados *store = source->get_store();
   CephContext *cct = store->ctx();
   RGWObjectCtx& obj_ctx = source->get_ctx();
-  const uint64_t chunk_size = cct->_conf->rgw_get_obj_max_req_size;
-  const uint64_t window_size = cct->_conf->rgw_get_obj_window_size;
+  const uint64_t chunk_size = cct->_conf->rgw_get_obj_max_req_size; // 默认 4M
+  const uint64_t window_size = cct->_conf->rgw_get_obj_window_size; // 默认 16M
 
   auto aio = rgw::make_throttle(window_size, y);
-  get_obj_data data(store, cb, &*aio, ofs, y);
-
+  get_obj_data data(store, cb, &*aio, ofs, y); // get_obj_data 的 flush 操作会调用客户端回调函数，将数据发送回客户端
+  // 从 rados 中遍历 obj，并调用回调函数 _get_obj_iterate_cb 
   int r = store->iterate_obj(dpp, obj_ctx, source->get_bucket_info(), state.obj,
                              ofs, end, chunk_size, _get_obj_iterate_cb, &data, y);
   if (r < 0) {
@@ -6545,7 +6545,7 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
       off_t next_stripe_ofs = stripe_ofs + iter.get_stripe_size();
 
       while (ofs < next_stripe_ofs && ofs <= end) {
-        read_obj = iter.get_location().get_raw_obj(store);
+        read_obj = iter.get_location().get_raw_obj(store); // 设置对象或分段对象信息
         uint64_t read_len = std::min(len, iter.get_stripe_size() - (ofs - stripe_ofs));
         read_ofs = iter.location_ofs() + (ofs - stripe_ofs);
 
@@ -6553,7 +6553,7 @@ int RGWRados::iterate_obj(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
           read_len = max_chunk_size;
         }
 
-        reading_from_head = (read_obj == head_obj);
+        reading_from_head = (read_obj == head_obj); // 头对象
         r = cb(dpp, read_obj, ofs, read_ofs, read_len, reading_from_head, astate, arg); // 读取分段信息并调用回调函数
         if (r < 0) {
           return r;
@@ -8583,7 +8583,7 @@ int RGWRados::cls_bucket_list_ordered(const DoutPrefixProvider *dpp,
 				      const uint32_t num_entries,
 				      const bool list_versions,
 				      const uint16_t expansion_factor,
-				      ent_map_t& m,
+				      ent_map_t& m, // 数据保存在 ent_map 中
 				      bool* is_truncated,
 				      bool* cls_filtered,
 				      rgw_obj_index_key *last_entry,
@@ -8609,7 +8609,7 @@ int RGWRados::cls_bucket_list_ordered(const DoutPrefixProvider *dpp,
   // key   - oid (for different shards if there is any)
   // value - list result for the corresponding oid (shard), it is filled by
   //         the AIO callback
-  map<int, string> shard_oids;
+  map<int, string> shard_oids; // 从索引池中读取对应 bucket 的 shard 对应的对象名
   int r = svc.bi_rados->open_bucket_index(dpp, bucket_info, shard_id,
 					  &index_pool, &shard_oids,
 					  nullptr);
@@ -8652,7 +8652,7 @@ int RGWRados::cls_bucket_list_ordered(const DoutPrefixProvider *dpp,
     num_entries << " total entries" << dendl;
 
   auto& ioctx = index_pool.ioctx();
-  map<int, rgw_cls_list_ret> shard_list_results;
+  map<int, rgw_cls_list_ret> shard_list_results; // shard_id -> result
   cls_rgw_obj_key start_after_key(start_after.name, start_after.instance);
   r = CLSRGWIssueBucketList(ioctx, start_after_key, prefix, delimiter,
 			    num_entries_per_shard,

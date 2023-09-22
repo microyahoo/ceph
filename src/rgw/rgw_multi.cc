@@ -78,7 +78,7 @@ bool is_v2_upload_id(const string& upload_id)
          (strncmp(uid, MULTIPART_UPLOAD_ID_PREFIX_LEGACY, sizeof(MULTIPART_UPLOAD_ID_PREFIX_LEGACY) - 1) == 0);
 }
 
-int list_multipart_parts(const DoutPrefixProvider *dpp, rgw::sal::RGWRadosStore *store, RGWBucketInfo& bucket_info,
+int list_multipart_parts(const DoutPrefixProvider *dpp, rgw::sal::RGWRadosStore *store, RGWBucketInfo& bucket_info, // 查询 multiparts
 			 CephContext *cct,
 			 const string& upload_id,
 			 const string& meta_oid, int num_parts,

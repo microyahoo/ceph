@@ -402,7 +402,7 @@ int radosgw_Main(int argc, const char **argv)
   if (apis_map.count("s3") > 0 || s3website_enabled) {
     if (! swift_at_root) {
       rest.register_default_mgr(set_logging(rest_filter(store->getRados(), RGW_REST_S3,
-                                                        new RGWRESTMgr_S3(s3website_enabled, sts_enabled, iam_enabled, pubsub_enabled))));
+                                                        new RGWRESTMgr_S3(s3website_enabled, sts_enabled, iam_enabled, pubsub_enabled)))); // s3 mgr
     } else {
       derr << "Cannot have the S3 or S3 Website enabled together with "
            << "Swift API placed in the root of hierarchy" << dendl;
@@ -602,7 +602,7 @@ int radosgw_Main(int argc, const char **argv)
       config->get_val("port", 80, &port);
       std::string uri_prefix;
       config->get_val("prefix", "", &uri_prefix);
-      RGWProcessEnv env{ store, &rest, olog, port, uri_prefix, auth_registry };
+      RGWProcessEnv env{ store, &rest, olog, port, uri_prefix, auth_registry }; // rgw process env
       fe = new RGWAsioFrontend(env, config, sched_ctx); // asio frontend
     }
 #endif /* WITH_RADOSGW_BEAST_FRONTEND */

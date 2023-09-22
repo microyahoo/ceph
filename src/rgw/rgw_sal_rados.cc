@@ -651,11 +651,11 @@ std::unique_ptr<RGWObject::ReadOp> RGWRadosObject::get_read_op(RGWObjectCtx *ctx
 RGWRadosObject::RadosReadOp::RadosReadOp(RGWRadosObject *_source, RGWObjectCtx *_rctx) :
 	source(_source),
 	rctx(_rctx),
-	op_target(_source->store->getRados(),
+	op_target(_source->store->getRados(), // 设置 RGWRados::Object
 		  _source->get_bucket()->get_info(),
 		  *static_cast<RGWObjectCtx *>(rctx),
 		  _source->get_obj()),
-	parent_op(&op_target)
+	parent_op(&op_target) // 设置 RGWRados::Object::Read 的 source
 { }
 
 int RGWRadosObject::RadosReadOp::prepare(optional_yield y, const DoutPrefixProvider *dpp)
@@ -674,7 +674,7 @@ int RGWRadosObject::RadosReadOp::prepare(optional_yield y, const DoutPrefixProvi
   parent_op.params.obj_size = &obj_size;
   parent_op.params.attrs = &source->get_attrs();
 
-  int ret = parent_op.prepare(y, dpp);
+  int ret = parent_op.prepare(y, dpp); // read prepare
   if (ret < 0)
     return ret;
 

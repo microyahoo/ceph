@@ -230,7 +230,7 @@ class RGWObjectCtx {
   ceph::shared_mutex lock = ceph::make_shared_mutex("RGWObjectCtx");
   void *s{nullptr};
 
-  std::map<rgw_obj, RGWObjState> objs_state;
+  std::map<rgw_obj, RGWObjState> objs_state; // 记录 obj -> state 
 public:
   explicit RGWObjectCtx(rgw::sal::RGWRadosStore *_store) : store(_store) {}
   explicit RGWObjectCtx(rgw::sal::RGWRadosStore *_store, void *_s) : store(_store), s(_s) {}
@@ -716,7 +716,7 @@ public:
 
   class Object {
     RGWRados *store;
-    RGWBucketInfo bucket_info;
+    RGWBucketInfo bucket_info; // 对象所在桶信息
     RGWObjectCtx& ctx;
     rgw_obj obj;
 
@@ -1075,13 +1075,13 @@ public:
 		       map<string, bool> *common_prefixes,
 		       bool *is_truncated,
                        optional_yield y) {
-	if (params.allow_unordered) {
-	  return list_objects_unordered(dpp, max, result, common_prefixes,
-					is_truncated, y);
-	} else {
-	  return list_objects_ordered(dpp, max, result, common_prefixes,
-				      is_truncated, y);
-	}
+        if (params.allow_unordered) {
+          return list_objects_unordered(dpp, max, result, common_prefixes,
+                        is_truncated, y);
+        } else {
+          return list_objects_ordered(dpp, max, result, common_prefixes,
+                          is_truncated, y);
+        }
       }
       rgw_obj_key& get_next_marker() {
         return next_marker;

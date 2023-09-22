@@ -156,7 +156,7 @@ int rgw_parse_url_bucket(const string &bucket, const string& auth_tenant,
     }
   } else {
     tenant_name = auth_tenant;
-    bucket_name = bucket;
+    bucket_name = bucket; // 设置 bucket 名
   }
   return 0;
 }

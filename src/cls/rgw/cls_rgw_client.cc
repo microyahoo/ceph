@@ -26,7 +26,7 @@ int CLSRGWConcurrentIO::operator()() {
   int ret = 0;
   iter = objs_container.begin();
   for (; iter != objs_container.end() && max_aio-- > 0; ++iter) {
-    ret = issue_op(iter->first, iter->second);
+    ret = issue_op(iter->first, iter->second); // 发起 op 请求
     if (ret < 0)
       break;
   }
@@ -154,19 +154,19 @@ bool BucketIndexAioManager::wait_for_completions(int valid_ret_code,
     if (completed_objs || retry_objs) {
       auto liter = completion_objs.find(iter->first);
       if (liter != completion_objs.end()) {
-	if (completed_objs && r == 0) { /* update list of successfully completed objs */
-	  (*completed_objs)[liter->second.shard_id] = liter->second.oid;
-	}
+        if (completed_objs && r == 0) { /* update list of successfully completed objs */
+          (*completed_objs)[liter->second.shard_id] = liter->second.oid;
+        }
 
-	if (r == RGWBIAdvanceAndRetryError) {
-	  r = 0;
-	  if (retry_objs) {
-	    (*retry_objs)[liter->second.shard_id] = liter->second.oid;
-	  }
-	}
+        if (r == RGWBIAdvanceAndRetryError) {
+          r = 0;
+          if (retry_objs) {
+            (*retry_objs)[liter->second.shard_id] = liter->second.oid;
+          }
+        }
       } else {
-	// NB: should we log an error here; currently no logging
-	// context to use
+        // NB: should we log an error here; currently no logging
+        // context to use
       }
     }
 
@@ -324,7 +324,7 @@ void cls_rgw_bucket_list_op(librados::ObjectReadOperation& op,
   call.list_versions = list_versions;
   encode(call, in);
 
-  op.exec(RGW_CLASS, RGW_BUCKET_LIST, in,
+  op.exec(RGW_CLASS, RGW_BUCKET_LIST, in, // src/cls/rgw/cls_rgw.cc
 	  new ClsBucketIndexOpCtx<rgw_cls_list_ret>(result, NULL));
 }
 

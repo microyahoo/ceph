@@ -4755,7 +4755,7 @@ int RGWHandler_REST_S3::init(rgw::sal::RGWRadosStore *store, struct req_state *s
 {
   int ret;
 
-  s->dialect = "s3";
+  s->dialect = "s3"; // 设置 req_state 方言为 s3  
 
   ret = rgw_validate_tenant_name(s->bucket_tenant);
   if (ret)
@@ -4790,7 +4790,7 @@ int RGWHandler_REST_S3::init(rgw::sal::RGWRadosStore *store, struct req_state *s
   }
 
   const char *sc = s->info.env->get("HTTP_X_AMZ_STORAGE_CLASS");
-  if (sc) {
+  if (sc) { // 设置 storage class
     s->info.storage_class = sc;
   }
 
@@ -4919,7 +4919,7 @@ RGWHandler_REST* RGWRESTMgr_S3::get_handler(rgw::sal::RGWRadosStore *store,
     if (s->init_state.url_bucket.empty()) {
       handler = new RGWHandler_REST_Service_S3(auth_registry, enable_sts, enable_iam, enable_pubsub);
     } else if (rgw::sal::RGWObject::empty(s->object.get())) {
-      handler = new RGWHandler_REST_Bucket_S3(auth_registry, enable_pubsub);
+      handler = new RGWHandler_REST_Bucket_S3(auth_registry, enable_pubsub); // s->object 在上面 init_from_header 中可能会被赋值，不过 s3cmd list bucket 和 object 时都为空。
     } else {
       handler = new RGWHandler_REST_Obj_S3(auth_registry); // s3 obj handler
     }

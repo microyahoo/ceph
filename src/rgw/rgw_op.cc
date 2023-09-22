@@ -338,7 +338,7 @@ static int get_obj_head(const DoutPrefixProvider *dpp,
 			bufferlist *pbl)
 {
   std::unique_ptr<rgw::sal::RGWObject::ReadOp> read_op = obj->get_read_op(s->obj_ctx);
-  obj->set_prefetch_data(s->obj_ctx);
+  obj->set_prefetch_data(s->obj_ctx); // 设置预期数据
 
   int ret = read_op->prepare(s->yield, dpp); // src/rgw/rgw_rados.cc
   if (ret < 0) {
@@ -2315,17 +2315,17 @@ void RGWGetObj::execute(optional_yield y)
 
   /* Check whether the object has expired. Swift API documentation
    * stands that we should return 404 Not Found in such case. */
-  if (need_object_expiration() && s->object->is_expired()) {
+  if (need_object_expiration() && s->object->is_expired()) { // 对象是否过期
     op_ret = -ENOENT;
     goto done_err;
   }
 
   /* Decode S3 objtags, if any */
-  rgw_cond_decode_objtags(s, attrs);
+  rgw_cond_decode_objtags(s, attrs); // tagging
 
   start = ofs;
 
-  attr_iter = attrs.find(RGW_ATTR_MANIFEST);
+  attr_iter = attrs.find(RGW_ATTR_MANIFEST); // manifest
   op_ret = this->get_decrypt_filter(&decrypt, filter,
                                     attr_iter != attrs.end() ? &(attr_iter->second) : nullptr);
   if (decrypt != nullptr) {
@@ -6262,14 +6262,14 @@ void RGWInitMultipart::execute(optional_yield y)
     char buf[33];
     std::unique_ptr<rgw::sal::RGWObject> obj;
     gen_rand_alphanumeric(s->cct, buf, sizeof(buf) - 1);
-    upload_id = MULTIPART_UPLOAD_ID_PREFIX; /* v2 upload id */
+    upload_id = MULTIPART_UPLOAD_ID_PREFIX; /* v2 upload id */ // 生成 upload id
     upload_id.append(buf);
 
     string tmp_obj_name;
     RGWMPObj mp(s->object->get_name(), upload_id);
-    tmp_obj_name = mp.get_meta();
+    tmp_obj_name = mp.get_meta(); // meta 为 oid.upload-id.meta
 
-    obj = s->bucket->get_object(rgw_obj_key(tmp_obj_name, string(), mp_ns));
+    obj = s->bucket->get_object(rgw_obj_key(tmp_obj_name, string(), mp_ns)); // rgw/rgw_sal_rados.cc
     // the meta object will be indexed with 0 size, we c
     obj->set_in_extra_data(true);
     obj->set_hash_source(s->object->get_name());

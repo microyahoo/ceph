@@ -7612,14 +7612,14 @@ int PrimaryLogPG::do_osd_ops(OpContext *ctx, vector<OSDOp>& ops) // 处理 osd o
     case CEPH_OSD_OP_OMAPGETHEADER:
       tracepoint(osd, do_osd_op_pre_omapgetheader, soid.oid.name.c_str(), soid.snap.val);
       if (!oi.is_omap()) {
-	// return empty header
-	break;
+        // return empty header
+        break;
       }
       ++ctx->num_read;
       {
-	osd->store->omap_get_header(ch, ghobject_t(soid), &osd_op.outdata);
-	ctx->delta_stats.num_rd_kb += shift_round_up(osd_op.outdata.length(), 10);
-	ctx->delta_stats.num_rd++;
+        osd->store->omap_get_header(ch, ghobject_t(soid), &osd_op.outdata);
+        ctx->delta_stats.num_rd_kb += shift_round_up(osd_op.outdata.length(), 10);
+        ctx->delta_stats.num_rd++;
       }
       break;
 

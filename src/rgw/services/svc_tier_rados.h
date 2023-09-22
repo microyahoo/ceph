@@ -45,8 +45,8 @@ public:
     oid = _oid;
     upload_id = _upload_id;
     prefix = oid + ".";
-    meta = prefix + upload_id + MP_META_SUFFIX;
-    prefix.append(part_unique_str);
+    meta = prefix + upload_id + MP_META_SUFFIX; // 设置 meta, oid.upload-id.meta
+    prefix.append(part_unique_str); // 设置 prefix
   }
   const string& get_meta() const { return meta; }
   string get_part(int num) const {

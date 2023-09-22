@@ -53,17 +53,17 @@ int RGWSI_BucketIndex_RADOS::open_bucket_index_pool(const DoutPrefixProvider *dp
   auto& zonegroup = svc.zone->get_zonegroup();
   auto& zone_params = svc.zone->get_zone_params();
 
-  const rgw_placement_rule *rule = &bucket_info.placement_rule;
+  const rgw_placement_rule *rule = &bucket_info.placement_rule; // 获取 bucket_info 的 placement rule，格式为： {name = "default-placement", storage_class = ""},
   if (rule->empty()) {
     rule = &zonegroup.default_placement;
   }
-  auto iter = zone_params.placement_pools.find(rule->name);
+  auto iter = zone_params.placement_pools.find(rule->name); // 找到 bucket 对应的 placement rule 所对应的 placement pools，包括索引池等等。
   if (iter == zone_params.placement_pools.end()) {
     ldpp_dout(dpp, 0) << "could not find placement rule " << *rule << " within zonegroup " << dendl;
     return -EINVAL;
   }
 
-  int r = open_pool(dpp, iter->second.index_pool, index_pool, true);
+  int r = open_pool(dpp, iter->second.index_pool, index_pool, true); // 打开索引池
   if (r < 0)
     return r;
 
@@ -85,8 +85,8 @@ int RGWSI_BucketIndex_RADOS::open_bucket_index_base(const DoutPrefixProvider *dp
     return -EIO;
   }
 
-  *bucket_oid_base = dir_oid_prefix; // .dir.
-  bucket_oid_base->append(bucket.bucket_id);
+  *bucket_oid_base = dir_oid_prefix;         // .dir.
+  bucket_oid_base->append(bucket.bucket_id); // .dir.<bucket_id>
 
   return 0;
 
@@ -175,7 +175,7 @@ int RGWSI_BucketIndex_RADOS::open_bucket_index(const DoutPrefixProvider *dpp,
                                                map<int, string> *bucket_instance_ids)
 {
   int shard_id = _shard_id.value_or(-1);
-  string bucket_oid_base;
+  string bucket_oid_base; // .dir.<bucket_id>
   int ret = open_bucket_index_base(dpp, bucket_info, index_pool, &bucket_oid_base);
   if (ret < 0) {
     ldpp_dout(dpp, 20) << __func__ << ": open_bucket_index_pool() returned "

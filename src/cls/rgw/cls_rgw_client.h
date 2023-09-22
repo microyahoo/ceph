@@ -269,7 +269,7 @@ protected:
   librados::IoCtx& io_ctx;
 
   // map of shard # to oid; the shards that are remaining to be processed
-  std::map<int, std::string>& objs_container;
+  std::map<int, std::string>& objs_container; // shard_id -> oid
   // iterator to work through objs_container
   std::map<int, std::string>::iterator iter;
 
@@ -298,7 +298,7 @@ public:
   virtual ~CLSRGWConcurrentIO()
   {}
 
-  int operator()();
+  int operator()(); // src/cls/rgw/cls_rgw_client.cc
 }; // class CLSRGWConcurrentIO
 
 

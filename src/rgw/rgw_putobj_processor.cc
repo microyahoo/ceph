@@ -461,7 +461,7 @@ int MultipartObjectProcessor::complete(size_t accounted_size,
   bufferlist bl;
   RGWUploadPartInfo info;
   string p = "part.";
-  bool sorted_omap = is_v2_upload_id(upload_id);
+  bool sorted_omap = is_v2_upload_id(upload_id); // v2 类型的 upload id
 
   if (sorted_omap) {
     char buf[32];

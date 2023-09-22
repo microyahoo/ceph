@@ -2296,7 +2296,7 @@ RGWHandler_REST* RGWREST::get_handler(
   }
 
   RGWHandler_REST* handler = m->get_handler(store, s, auth_registry, frontend_prefix);
-  if (! handler) { // RGWHandler_REST_Obj_S3
+  if (! handler) { // RGWHandler_REST_Bucket_S3, RGWHandler_REST_Obj_S3
     *init_error = -ERR_METHOD_NOT_ALLOWED;
     return NULL;
   }
