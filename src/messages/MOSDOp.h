@@ -579,7 +579,7 @@ struct ceph_osd_request_head {
     out << "osd_op(";
     if (!partial_decode_needed) {
       out << get_reqid() << ' ';
-      out << pgid;
+      out << pgid; // pg id
       if (!final_decode_needed) {
 	out << ' ';
 	out << hobj
@@ -591,7 +591,7 @@ struct ceph_osd_request_head {
 	out << " " << get_raw_pg() << " (undecoded)";
       }
       out << " " << ceph_osd_flag_string(get_flags());
-      out << " e" << osdmap_epoch;
+      out << " e" << osdmap_epoch; // osdmap epoch
     }
     out << ")";
   }
