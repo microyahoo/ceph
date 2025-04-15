@@ -2318,8 +2318,8 @@ int OSD::peek_meta(ObjectStore *store,
 OSD::OSD(CephContext *cct_,
 	 std::unique_ptr<ObjectStore> store_,
 	 int id,
-	 Messenger *internal_messenger,
-	 Messenger *external_messenger,
+	 Messenger *internal_messenger, // ms_cluster
+	 Messenger *external_messenger, // ms_public
 	 Messenger *hb_client_front,
 	 Messenger *hb_client_back,
 	 Messenger *hb_front_serverm,
@@ -2333,7 +2333,7 @@ OSD::OSD(CephContext *cct_,
   tick_timer_without_osd_lock(cct, tick_timer_lock),
   gss_ktfile_client(cct->_conf.get_val<std::string>("gss_ktab_client_file")),
   cluster_messenger(internal_messenger),
-  client_messenger(external_messenger),
+  client_messenger(external_messenger), // client messenger
   objecter_messenger(osdc_messenger),
   monc(mc),
   mgrc(cct_, client_messenger, &mc->monmap),
@@ -2410,7 +2410,7 @@ OSD::OSD(CephContext *cct_,
   // Determine scheduler type for this OSD
   auto get_op_queue_type = [this, &conf = cct->_conf]() {
     op_queue_type_t queue_type;
-    if (auto type = conf.get_val<std::string>("osd_op_queue");
+    if (auto type = conf.get_val<std::string>("osd_op_queue"); // mclock_scheduler
         type != "debug_random") {
       if (auto qt = get_op_queue_type_by_name(type); qt.has_value()) {
         queue_type = *qt;
@@ -2430,7 +2430,7 @@ OSD::OSD(CephContext *cct_,
     }
     return queue_type;
   };
-  op_queue_type_t op_queue = get_op_queue_type();
+  op_queue_type_t op_queue = get_op_queue_type(); // mclock_scheduler 
 
   // Determine op queue cutoff
   auto get_op_queue_cut_off = [&conf = cct->_conf]() {
@@ -2439,17 +2439,17 @@ OSD::OSD(CephContext *cct_,
       std::mt19937 random_gen(rd());
       return (random_gen() % 2 < 1) ? CEPH_MSG_PRIO_HIGH : CEPH_MSG_PRIO_LOW;
     } else if (conf.get_val<std::string>("osd_op_queue_cut_off") == "high") {
-      return CEPH_MSG_PRIO_HIGH;
+      return CEPH_MSG_PRIO_HIGH; // high
     } else {
       // default / catch-all is 'low'
       return CEPH_MSG_PRIO_LOW;
     }
   };
-  unsigned op_queue_cut_off = get_op_queue_cut_off();
+  unsigned op_queue_cut_off = get_op_queue_cut_off(); // high
 
   // initialize shards
   num_shards = get_num_op_shards();
-  for (uint32_t i = 0; i < num_shards; i++) {
+  for (uint32_t i = 0; i < num_shards; i++) { // 创建 osd shards
     OSDShard *one_shard = new OSDShard(
       i,
       cct,
@@ -9752,7 +9752,7 @@ void OSD::dequeue_op(
   op->mark_reached_pg();
   op->osd_trace.event("dequeue_op");
 
-  pg->do_request(op, handle);
+  pg->do_request(op, handle); // osd 对应的 pg 处理请求
 
   // finish
   dout(10) << "dequeue_op " << *op->get_req() << " finish" << dendl;
@@ -10870,7 +10870,7 @@ void OSD::ShardedOpWQ::_add_slot_waiter(
 #undef dout_prefix
 #define dout_prefix *_dout << "osd." << osd->whoami << " op_wq(" << shard_index << ") "
 
-void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
+void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb) // osd shard 处理请求
 {
   uint32_t shard_index = thread_index % osd->num_shards;
   auto& sdata = osd->shards[shard_index];
@@ -11088,7 +11088,7 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
       if (!qi.peering_requires_pg()) {
 	// for pg-less events, we run them under the ordering lock, since
 	// we don't have the pg lock to keep them ordered.
-	qi.run(osd, sdata, pg, tp_handle);
+	qi.run(osd, sdata, pg, tp_handle); // 处理 op
       } else if (osdmap->is_up_acting_osd_shard(token, osd->whoami)) {
 	if (create_info) {
 	  if (create_info->by_mon &&

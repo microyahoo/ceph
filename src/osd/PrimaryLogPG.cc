@@ -1789,7 +1789,7 @@ void PrimaryLogPG::handle_backoff(OpRequestRef& op)
   session->ack_backoff(cct, m->pgid, m->id, begin, end);
 }
 
-void PrimaryLogPG::do_request(
+void PrimaryLogPG::do_request( // 处理请求
   OpRequestRef& op,
   ThreadPool::TPHandle &handle)
 {
@@ -1901,7 +1901,7 @@ void PrimaryLogPG::do_request(
 	osd->reply_op_error(op, -EOPNOTSUPP);
 	return;
       }
-      do_op(op);
+      do_op(op); // do_op
       break;
     case CEPH_MSG_OSD_BACKOFF:
       // object-level backoff acks handled in osdop context

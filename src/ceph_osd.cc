@@ -531,7 +531,7 @@ flushjournal_out:
   }
 
   // messengers
-  std::string msg_type = g_conf().get_val<std::string>("ms_type");
+  std::string msg_type = g_conf().get_val<std::string>("ms_type"); // 当前 async+posix
   std::string public_msg_type =
     g_conf().get_val<std::string>("ms_public_type");
   std::string cluster_msg_type =
@@ -583,7 +583,7 @@ flushjournal_out:
     CEPH_FEATURE_OSDENC;
 
   ms_public->set_default_policy(Messenger::Policy::stateless_registered_server(0));
-  ms_public->set_policy_throttlers(entity_name_t::TYPE_CLIENT,
+  ms_public->set_policy_throttlers(entity_name_t::TYPE_CLIENT, // 设置了限流
 				   client_byte_throttler.get(),
 				   client_msg_throttler.get());
   ms_public->set_policy(entity_name_t::TYPE_MON,

@@ -341,7 +341,7 @@ int process_request(const RGWProcessEnv& penv,
       }
     }
   }
-  std::tie(ret,c) = schedule_request(scheduler, s, op);
+  std::tie(ret,c) = schedule_request(scheduler, s, op); // schedule request
   if (ret < 0) {
     if (ret == -EAGAIN) {
       ret = -ERR_RATE_LIMITED;
