@@ -1681,11 +1681,11 @@ static inline vector<int> random_sequence(uint32_t n)
 
 int RGWLC::process(LCWorker* worker, bool once = false)
 {
-  int max_secs = cct->_conf->rgw_lc_lock_max_time;
+  int max_secs = cct->_conf->rgw_lc_lock_max_time; // 默认 90s
 
   /* generate an index-shard sequence unrelated to any other
    * that might be running in parallel */
-  vector<int> shard_seq = random_sequence(max_objs);
+  vector<int> shard_seq = random_sequence(max_objs); // max_objs 设置为 rgw_lc_max_objs
   for (auto index : shard_seq) {
     int ret = process(index, max_secs, worker, once);
     if (ret < 0)
