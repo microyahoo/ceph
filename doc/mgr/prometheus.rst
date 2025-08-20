@@ -29,7 +29,20 @@ Configuration
 
 .. note::
 
-    The Prometheus manager module needs to be restarted for configuration changes to be applied.
+    The ``prometheus`` Manager module must be restarted to apply configuration changes.
+
+.. mgr_module:: prometheus
+.. confval:: server_addr
+.. confval:: server_port
+.. confval:: scrape_interval
+.. confval:: cache
+.. confval:: stale_cache_strategy
+.. confval:: rbd_stats_pools
+.. confval:: rbd_stats_pools_refresh_interval
+.. confval:: standby_behaviour
+.. confval:: standby_error_status_code
+.. confval:: exclude_perf_counters
+.. confval:: healthcheck_history_max_entries
 
 By default the module will accept HTTP requests on port ``9283`` on all IPv4
 and IPv6 addresses on the host.  The port and listen address are both
@@ -140,7 +153,26 @@ The metrics take the following form;
     ceph_health_detail{name="OSD_DOWN",severity="HEALTH_WARN"} 1.0
     ceph_health_detail{name="PG_DEGRADED",severity="HEALTH_WARN"} 1.0
 
-The health check history is made available through the following commands;
+The module also maintains an in-memory history of health-check states.
+By default the history retains a maximum of 1000 entries. This limit is configurable via the following runtime option:
+
+  ``mgr/prometheus/healthcheck_history_max_entries`` - the maximum number of unique health check entries to track in memory (default: 1000).
+
+This setting helps avoid unbounded memory growth in large or long-lived clusters.
+
+The health check history may be retrieved and cleared by running the following commands:
+
+.. prompt:: bash #
+
+   ceph healthcheck history ls [--format {plain|json|json-pretty}]
+   ceph healthcheck history clear
+
+The ``ceph healthcheck ls`` command provides an overview of the health checks that the cluster has
+encountered since the last ``clear`` command was issued:
+
+.. prompt:: bash #
+
+   ceph healthcheck history ls
 
 ::
 

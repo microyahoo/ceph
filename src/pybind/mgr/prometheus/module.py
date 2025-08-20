@@ -3,18 +3,20 @@ from collections import defaultdict
 from pkg_resources import packaging  # type: ignore
 import json
 import math
-import os
 import re
 import threading
 import time
 import enum
+from collections import namedtuple
+from collections import OrderedDict
+from tempfile import NamedTemporaryFile
+
 from mgr_module import CLIReadCommand, MgrModule, MgrStandbyModule, PG_STATES, Option, ServiceInfoT, HandleCommandResult, CLIWriteCommand
 from mgr_util import get_default_addr, profile_method, build_url
 from rbd import RBD
-from collections import namedtuple
 import yaml
 
-from typing import DefaultDict, Optional, Dict, Any, Set, cast, Tuple, Union, List, Callable
+from typing import DefaultDict, Optional, Dict, Any, Set, cast, Tuple, Union, List, Callable, IO, TypeVar, Generic
 
 LabelValues = Tuple[str, ...]
 Number = Union[int, float]
@@ -25,22 +27,6 @@ MetricValue = Dict[LabelValues, Number]
 # for Prometheus exporter port registry
 
 DEFAULT_PORT = 9283
-
-# When the CherryPy server in 3.2.2 (and later) starts it attempts to verify
-# that the ports its listening on are in fact bound. When using the any address
-# "::" it tries both ipv4 and ipv6, and in some environments (e.g. kubernetes)
-# ipv6 isn't yet configured / supported and CherryPy throws an uncaught
-# exception.
-if cherrypy is not None:
-    Version = packaging.version.Version
-    v = Version(cherrypy.__version__)
-    # the issue was fixed in 3.2.3. it's present in 3.2.2 (current version on
-    # centos:7) and back to at least 3.0.0.
-    if Version("3.1.2") <= v < Version("3.2.3"):
-        # https://github.com/cherrypy/cherrypy/issues/1100
-        from cherrypy.process import servers
-        servers.wait_for_occupied_port = lambda host, port: None
-
 
 # cherrypy likes to sys.exit on error.  don't let it take us down too!
 def os_exit_noop(status: int) -> None:
@@ -153,6 +139,25 @@ class HealthCheckEvent:
         return self.__dict__
 
 
+K = TypeVar('K')
+V = TypeVar('V')
+
+
+class LRUCacheDict(OrderedDict[K, V], Generic[K, V]):
+    maxsize: int
+
+    def __init__(self, maxsize: int, *args: Any, **kwargs: Any) -> None:
+        self.maxsize = maxsize
+        super().__init__(*args, **kwargs)
+
+    def __setitem__(self, key: K, value: V) -> None:
+        if key in self:
+            self.move_to_end(key)
+        elif len(self) >= self.maxsize:
+            self.popitem(last=False)  # drop oldest
+        super().__setitem__(key, value)
+
+
 class HealthHistory:
     kv_name = 'health_history'
     titles = "{healthcheck_name:<24}  {first_seen:<20}  {last_seen:<20}  {count:>5}  {active:^6}"
@@ -161,7 +166,8 @@ class HealthHistory:
     def __init__(self, mgr: MgrModule):
         self.mgr = mgr
         self.lock = threading.Lock()
-        self.healthcheck: Dict[str, HealthCheckEvent] = {}
+        self.max_entries = cast(int, self.mgr.get_localized_module_option('healthcheck_history_max_entries', 1000))
+        self.healthcheck: LRUCacheDict[str, HealthCheckEvent] = LRUCacheDict(maxsize=self.max_entries)
         self._load()
 
     def _load(self) -> None:
@@ -191,7 +197,7 @@ class HealthHistory:
         """Reset the healthcheck history."""
         with self.lock:
             self.mgr.set_store(self.kv_name, "{}")
-            self.healthcheck = {}
+            self.healthcheck.clear()
 
     def save(self) -> None:
         """Save the current in-memory healthcheck history to the KV store."""
@@ -206,43 +212,43 @@ class HealthHistory:
         """
 
         current_checks = health_checks.get('checks', {})
-        changes_made = False
-
-        # first turn off any active states we're tracking
-        for seen_check in self.healthcheck:
-            check = self.healthcheck[seen_check]
-            if check.active and seen_check not in current_checks:
-                check.active = False
-                changes_made = True
-
-        # now look for any additions to track
         now = time.time()
-        for name, info in current_checks.items():
-            if name not in self.healthcheck:
-                # this healthcheck is new, so start tracking it
-                changes_made = True
-                self.healthcheck[name] = HealthCheckEvent(
-                    name=name,
-                    severity=info.get('severity'),
-                    first_seen=now,
-                    last_seen=now,
-                    count=1,
-                    active=True
-                )
-            else:
-                # seen it before, so update its metadata
-                check = self.healthcheck[name]
-                if check.active:
-                    # check has been registered as active already, so skip
-                    continue
-                else:
-                    check.last_seen = now
-                    check.count += 1
-                    check.active = True
-                    changes_made = True
+        with self.lock:
+            changes_made = False
+            names = set(self.healthcheck) | set(current_checks)
 
-        if changes_made:
-            self.save()
+            for name in names:
+                present = name in current_checks
+                check = self.healthcheck.get(name)
+                if check is None:
+                    if present:
+                        info = current_checks[name]
+                        self.healthcheck[name] = HealthCheckEvent(
+                            name=name,
+                            severity=info.get('severity'),
+                            first_seen=now,
+                            last_seen=now,
+                            count=1,
+                            active=True
+                        )
+                        changes_made = True
+
+                    continue
+
+                if present:
+                    if not check.active:
+                        check.count += 1
+                        changes_made = True
+
+                    check.last_seen = now
+                    check.active = True
+                else:
+                    if check.active:
+                        check.active = False
+                        changes_made = True
+
+            if changes_made:
+                self.save()
 
     def __str__(self) -> str:
         """Print the healthcheck history.
@@ -593,7 +599,22 @@ class Module(MgrModule):
             min=400,
             max=599,
             runtime=True
-        )
+        ),
+        Option(
+            name='exclude_perf_counters',
+            type='bool',
+            default=True,
+            desc='Do not include perf-counters in the metrics output',
+            long_desc='Gathering perf-counters from a single Prometheus exporter can degrade ceph-mgr performance, especially in large clusters. Instead, Ceph-exporter daemons are now used by default for perf-counter gathering. This should only be disabled when no ceph-exporters are deployed.',
+            runtime=True
+        ),
+        Option(
+            name='healthcheck_history_max_entries',
+            type='int',
+            default=1000,
+            desc='Maximum number of health check history entries to keep',
+            runtime=True
+        ),
     ]
 
     STALE_CACHE_FAIL = 'fail'
@@ -1688,6 +1709,94 @@ class Module(MgrModule):
         self.collect()
         self.get_file_sd_config()
 
+    def configure(self, server_addr: str, server_port: int) -> None:
+        cmd = {'prefix': 'orch get-security-config'}
+        ret, out, _ = self.mon_command(cmd)
+
+        if ret == 0 and out is not None:
+            try:
+                security_config = json.loads(out)
+                if security_config.get('security_enabled', False):
+                    self.setup_tls_config(server_addr, server_port)
+                    return
+            except Exception as e:
+                self.log.exception(
+                    'Failed to setup cephadm based secure monitoring stack: %s\n'
+                    'Falling back to default configuration',
+                    e
+                )
+
+        # In any error fallback to plain http mode
+        self.setup_default_config(server_addr, server_port)
+
+    def setup_default_config(self, server_addr: str, server_port: int) -> None:
+        cherrypy.config.update({
+            'server.socket_host': server_addr,
+            'server.socket_port': server_port,
+            'engine.autoreload.on': False,
+            'server.ssl_module': None,
+            'server.ssl_certificate': None,
+            'server.ssl_private_key': None,
+            'tools.gzip.on': True,
+            'tools.gzip.mime_types': [
+                'text/plain',
+                'text/html',
+                'application/json',
+            ],
+            'tools.gzip.compress_level': 6,
+        })
+        # Publish the URI that others may use to access the service we're about to start serving
+        self.set_uri(build_url(scheme='http', host=self.get_server_addr(),
+                     port=server_port, path='/'))
+
+    def setup_tls_config(self, server_addr: str, server_port: int) -> None:
+        # Temporarily disabling the verify function due to issues.
+        # Please check verify_tls_files below to more information.
+        # from mgr_util import verify_tls_files
+        cmd = {'prefix': 'orch certmgr generate-certificates',
+               'module_name': 'prometheus',
+               'format': 'json'}
+        ret, out, err = self.mon_command(cmd)
+        if ret != 0:
+            self.log.error(f'mon command to generate-certificates failed: {err}')
+            return
+        elif out is None:
+            self.log.error('mon command to generate-certificates failed to generate certificates')
+            return
+
+        cert_key = json.loads(out)
+        self.cert_file = NamedTemporaryFile()
+        self.cert_file.write(cert_key['cert'].encode('utf-8'))
+        self.cert_file.flush()  # cert_tmp must not be gc'ed
+        self.key_file = NamedTemporaryFile()
+        self.key_file.write(cert_key['key'].encode('utf-8'))
+        self.key_file.flush()  # pkey_tmp must not be gc'ed
+
+        # Temporarily disabling the verify function due to issues:
+        # See https://github.com/pyca/bcrypt/issues/694 for details.
+        # Re-enable once the issue is resolved.
+        # verify_tls_files(self.cert_file.name, self.key_file.name)
+        cert_file_path, key_file_path = self.cert_file.name, self.key_file.name
+
+        cherrypy.config.update({
+            'server.socket_host': server_addr,
+            'server.socket_port': server_port,
+            'engine.autoreload.on': False,
+            'server.ssl_module': 'builtin',
+            'server.ssl_certificate': cert_file_path,
+            'server.ssl_private_key': key_file_path,
+            'tools.gzip.on': True,
+            'tools.gzip.mime_types': [
+                'text/plain',
+                'text/html',
+                'application/json',
+            ],
+            'tools.gzip.compress_level': 6,
+        })
+        # Publish the URI that others may use to access the service we're about to start serving
+        self.set_uri(build_url(scheme='https', host=self.get_server_addr(),
+                     port=server_port, path='/'))
+
     def serve(self) -> None:
 
         class Root(object):
@@ -1717,10 +1826,9 @@ class Module(MgrModule):
 
             @staticmethod
             def _metrics(instance: 'Module') -> Optional[str]:
-                if not self.cache:
-                    self.log.debug('Cache disabled, collecting and returning without cache')
-                    cherrypy.response.headers['Content-Type'] = 'text/plain'
-                    return self.collect()
+                if not instance.cache:
+                    instance.log.debug('Cache disabled, collecting and returning without cache')
+                    return instance.collect()
 
                 # Return cached data if available
                 if not instance.collect_cache:
@@ -1728,7 +1836,6 @@ class Module(MgrModule):
 
                 def respond() -> Optional[str]:
                     assert isinstance(instance, Module)
-                    cherrypy.response.headers['Content-Type'] = 'text/plain'
                     return instance.collect_cache
 
                 if instance.collect_time < instance.scrape_interval:
@@ -1795,7 +1902,11 @@ class Module(MgrModule):
 
         cherrypy.tree.mount(Root(), "/")
         self.log.info('Starting engine...')
-        cherrypy.engine.start()
+        try:
+            cherrypy.engine.start()
+        except Exception as e:
+            self.log.error(f'Failed to start engine: {e}')
+            return
         self.log.info('Engine started.')
         # wait for the shutdown event
         self.shutdown_event.wait()
@@ -1889,7 +2000,6 @@ class StandbyModule(MgrStandbyModule):
 
             @cherrypy.expose
             def metrics(self) -> str:
-                cherrypy.response.headers['Content-Type'] = 'text/plain'
                 return ''
 
         cherrypy.tree.mount(Root(), '/', {})
