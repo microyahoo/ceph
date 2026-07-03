@@ -7054,7 +7054,16 @@ void RGWDeleteMultiObj::handle_individual_object(const rgw_obj_key& o, optional_
                                                  boost::asio::deadline_timer *formatter_flush_cond)
 {
   std::string version_id;
-  RGWObjectCtx *obj_ctx = static_cast<RGWObjectCtx *>(s->obj_ctx);
+  // Use a per-object RGWObjectCtx rather than the request-wide s->obj_ctx.
+  // handle_individual_object() runs in a separate coroutine per object and
+  // these coroutines execute concurrently on the same thread, yielding across
+  // async rados I/O. RGWObjectCtx hands out raw RGWObjState* pointers into an
+  // internal std::map; a concurrent coroutine calling invalidate() erases map
+  // nodes and leaves other coroutines holding dangling astate pointers, which
+  // crashes when accessing astate->attrset. A local ctx keeps each coroutine's
+  // object state isolated.
+  RGWObjectCtx local_obj_ctx(store);
+  RGWObjectCtx *obj_ctx = &local_obj_ctx;
   std::unique_ptr<rgw::sal::RGWObject> obj = bucket->get_object(o);
   if (s->iam_policy || ! s->iam_user_policies.empty() || !s->session_policies.empty()) {
     auto identity_policy_res = eval_identity_or_session_policies(s->iam_user_policies, s->env,
