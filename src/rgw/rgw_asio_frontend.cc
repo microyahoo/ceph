@@ -257,8 +257,17 @@ void handle_connection(boost::asio::io_context& context,
         return;
       }
 
+      // use the error_code overload of local_endpoint(); the throwing overload
+      // aborts the whole process if the peer has already closed the connection
+      // https://github.com/ceph/ceph/pull/48390
+      const auto& local_endpoint = socket.local_endpoint(ec);
+      if (ec) {
+        ldout(cct, 1) << "failed to get local endpoint: " << ec.message() << dendl;
+        return;
+      }
+
       StreamIO real_client{cct, stream, timeout, parser, yield, buffer,
-                           is_ssl, socket.local_endpoint(),
+                           is_ssl, local_endpoint,
                            remote_endpoint};
 
       auto real_client_io = rgw::io::add_reordering(
