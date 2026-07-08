@@ -1,0 +1,119 @@
+FROM quay.io/centos/centos:stream8
+
+# Fix CentOS 8 repos (EOL, moved to vault)
+RUN sed -i 's|^mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/CentOS-*.repo && \
+    sed -i 's|^#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo && \
+    dnf clean all
+
+# Install runtime dependencies only (no -devel packages)
+RUN dnf install -y epel-release && \
+    dnf install -y --allowerasing --setopt=install_weak_deps=False \
+        fmt \
+        openssl-libs \
+        libcurl \
+        liboath \
+        openldap \
+        expat \
+        libedit \
+        gperftools-libs \
+        libibverbs \
+        librdmacm \
+        libnl3 \
+        libaio \
+        libblkid \
+        lz4-libs \
+        snappy \
+        leveldb \
+        ncurses-libs \
+        nss \
+        libcap-ng \
+        libuuid \
+        systemd-libs \
+        lua-libs \
+        libicu \
+        librabbitmq \
+        librdkafka \
+        python3 \
+        python3-setuptools \
+        python3-prettytable \
+        python3-pyyaml \
+        python3-cherrypy \
+        python3-dateutil \
+        python3-pecan \
+        python3-requests \
+        python3-werkzeug \
+        python3-pyOpenSSL \
+        python3-jinja2 \
+        python3-bcrypt \
+        smartmontools \
+        e2fsprogs \
+        xfsprogs \
+        parted \
+        gdisk \
+        lvm2 \
+        udev \
+        cryptsetup \
+        kmod \
+        logrotate && \
+    dnf clean all
+
+# Create ceph user and required directories
+RUN groupadd -r ceph && \
+    useradd -r -g ceph -s /bin/bash -d /var/lib/ceph ceph && \
+    mkdir -p /usr/lib64/ceph/erasure-code \
+             /usr/lib64/rados-classes \
+             /usr/share/ceph/mgr \
+             /var/lib/ceph/bootstrap-osd \
+             /var/lib/ceph/bootstrap-mds \
+             /var/lib/ceph/bootstrap-rgw \
+             /var/lib/ceph/bootstrap-mon \
+             /var/lib/ceph/mon \
+             /var/lib/ceph/osd \
+             /var/lib/ceph/mds \
+             /var/lib/ceph/mgr \
+             /var/lib/ceph/radosgw \
+             /var/lib/ceph/tmp \
+             /var/log/ceph \
+             /var/run/ceph \
+             /etc/ceph && \
+    chown -R ceph:ceph /var/lib/ceph /var/log/ceph /var/run/ceph /etc/ceph
+
+# Copy stripped binaries
+COPY stage/bin/ /usr/bin/
+# Copy shell scripts
+COPY stage/scripts/ /usr/bin/
+# Copy sbin scripts (ceph-volume)
+COPY stage/sbin/ /usr/sbin/
+# Copy stripped shared libraries
+COPY stage/lib/ /usr/lib64/
+# Copy OSD class plugins
+COPY stage/rados-classes/ /usr/lib64/rados-classes/
+# Copy erasure-code plugins
+COPY stage/erasure-code/ /usr/lib64/ceph/erasure-code/
+# Copy compressor plugins
+COPY stage/ceph-lib/compressor/ /usr/lib64/ceph/compressor/
+# Copy crypto plugins
+COPY stage/ceph-lib/crypto/ /usr/lib64/ceph/crypto/
+# Copy denc modules
+COPY stage/ceph-lib/denc/ /usr/lib64/ceph/denc/
+# Copy librbd plugins
+COPY stage/ceph-lib/librbd/ /usr/lib64/ceph/librbd/
+# Copy Python bindings (rados, rbd, cephfs, rgw) and ceph-volume
+COPY stage/python/ /usr/lib/python3.6/site-packages/
+# Copy MGR Python modules
+COPY stage/mgr/ /usr/share/ceph/mgr/
+
+# Update linker cache
+RUN ldconfig
+
+# Copy logrotate config
+COPY src/logrotate.conf /etc/logrotate.d/ceph
+
+# Copy entrypoint
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+VOLUME ["/var/lib/ceph", "/var/log/ceph", "/etc/ceph"]
+EXPOSE 6789 6800-7300 7480 8080
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
