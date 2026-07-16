@@ -4523,13 +4523,13 @@ std::vector<Option> get_global_options() {
     .set_long_description("Chunks larger than this are broken into smaller chunks before being compressed"),
 
     Option("bluestore_compression_min_blob_size_hdd", Option::TYPE_SIZE, Option::LEVEL_ADVANCED)
-    .set_default(8_K)
+    .set_default(64_K)
     .set_flag(Option::FLAG_RUNTIME)
     .set_description("Default value of bluestore_compression_min_blob_size for rotational media")
     .add_see_also("bluestore_compression_min_blob_size"),
 
     Option("bluestore_compression_min_blob_size_ssd", Option::TYPE_SIZE, Option::LEVEL_ADVANCED)
-    .set_default(8_K)
+    .set_default(64_K)
     .set_flag(Option::FLAG_RUNTIME)
     .set_description("Default value of bluestore_compression_min_blob_size for non-rotational (solid state) media")
     .add_see_also("bluestore_compression_min_blob_size"),
