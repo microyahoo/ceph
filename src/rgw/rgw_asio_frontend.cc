@@ -387,7 +387,8 @@ class ConnectionList {
   void close(boost::system::error_code& ec) {
     std::lock_guard lock{mutex};
     for (auto& conn : connections) {
-      conn.socket.close(ec);
+      conn.socket.cancel(ec);
+      conn.socket.shutdown(tcp::socket::shutdown_both, ec);
     }
     connections.clear();
   }
