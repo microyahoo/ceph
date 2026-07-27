@@ -10,7 +10,7 @@ echo "similar to official Ceph builds."
 echo ""
 
 # Use Docker to build in CentOS Stream 8 environment
-docker build -t ceph-builder:complete -f- . <<'DOCKERFILE'
+docker build --network=host -t ceph-builder:complete -f- . <<'DOCKERFILE'
 FROM quay.io/centos/centos:stream8
 
 # Fix CentOS 8 repos (now EOL, moved to vault)
@@ -77,7 +77,7 @@ WORKDIR /build
 DOCKERFILE
 
 echo "Step 1/2: Building all Ceph components with bundled Boost..."
-docker run --rm \
+docker run --rm --network=host \
     -v "$(pwd):/src" \
     -v "$(pwd)/build:/build" \
     ceph-builder:complete \

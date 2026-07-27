@@ -308,7 +308,7 @@ echo "Total: $(du -sh "$STAGE_DIR" | cut -f1)"
 
 echo ""
 echo "Step 4/4: Building Docker image..."
-docker build -t "$IMAGE_NAME" -f Dockerfile.production .
+docker build --network=host -t "$IMAGE_NAME" -f Dockerfile.production .
 
 echo ""
 echo "=== Done! ==="
