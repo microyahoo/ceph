@@ -1,13 +1,13 @@
-# Ceph 16.2.14-fix 编译与打包完整文档
+# Ceph 16.2.14-fix4 编译与打包完整文档
 
 ## 概述
 
-本文档记录了从源代码编译 Ceph 16.2.14（含 RGW multi-object delete UAF 修复）并打包为生产可用 Docker 镜像的完整流程。
+本文档记录了从源代码编译 Ceph 16.2.14（含多项 bug 修复）并打包为生产可用 Docker 镜像的完整流程。
 
-**目标分支**: `16.2.14-fix`
+**目标分支**: `16.2.14-fix4`
 **基准 Tag**: `238ba602515`（16.2.14 release）
-**顶部 Commit**: `6b8fa999d35` — rgw: fix use-after-free in concurrent multi-object delete
-**最终产物**: Docker 镜像 `ceph:16.2.14-fix`（779MB），包含完整 Ceph 组件（含 ceph-mgr）
+**顶部 Commit**: `6491bf5153c` — build: optimize builder image with install-deps.sh and document env variables
+**最终产物**: Docker 镜像 `ceph:16.2.14-fix4`（~779MB），包含完整 Ceph 组件（含 ceph-mgr）
 
 ---
 
@@ -20,11 +20,20 @@
 
 ---
 
-## 整体流程
+## 整体流程（一键构建）
+
+```bash
+# 一键完成编译 + 打包
+./build-and-package.sh
+
+# 或分步执行
+REBUILD_BUILDER=1 ./build-complete.sh   # 编译
+./package-production.sh                  # 打包
+```
 
 ```
 源代码 ──→ 容器内编译 ──→ build/ 产物 ──→ strip + stage ──→ 生产镜像
-         (CentOS 8)      (20GB未strip)   (strip+MGR模块)    (779MB)
+         (CentOS 8)      (20GB未strip)   (strip+MGR模块)    (~779MB)
 ```
 
 分为两大步骤：
@@ -65,7 +74,7 @@ cmake /src \
 
 ### 源代码修改
 
-相对于官方 16.2.14 tag（`238ba602515`），本分支包含 **4 个 commit**：
+相对于官方 16.2.14 tag（`238ba602515`），本分支包含 **18 个 commit**：
 
 | Commit | 说明 |
 |--------|------|
@@ -73,24 +82,54 @@ cmake /src \
 | `3c8b78304a7` | ceph-volume: fix a bug in _check_generic_reject_reasons |
 | `2f6fcbfcd23` | rgw: beast frontend checks for local_endpoint() errors |
 | `6b8fa999d35` | rgw: fix use-after-free in concurrent multi-object delete |
+| `b186cc164bf` | build: add container build and production image packaging scripts |
+| `3822dd011c2` | test: add RGW multi-object delete UAF reproduction tool |
+| `424af9a97f1` | options/global: raise bluestore_compression_min_blob_size_* to 64K |
+| `f93910ef80c` | os/bluestore: track compression_*blob_size* parameters for online update |
+| `514a69a5f2c` | common/options: enable LZ4 compression for BlueStore RocksDB |
+| `75ef9c03142` | rgw/beast: use cancel+shutdown instead of close during frontend shutdown |
+| `dd66182723f` | build: use --network=host for docker build and run |
+| `0598ac17c8b` | mgr/prometheus: prune stale health checks, compress output |
+| `ccbed536d3a` | mgr/TTLCache: fix PyObject* lifetime management and cleanup logic |
+| `b939a8704ae` | mgr/prometheus: Use RLock to fix deadlock in HealthHistory |
+| `cbb1585931e` | mgr/prometheus: metrics header for standby module |
+| `7e505c69617` | mgr/prometheus/test_module: Adding unit-test for new classes |
+| `e1a08236508` | mgr/prometheus: fix Python 3.6 compatibility for Pacific backport |
+| `6491bf5153c` | build: optimize builder image with install-deps.sh and document env variables |
 
 另外为了在外部网络构建，注释了 `install-deps.sh` 中的 Ceph 内部 sepia 仓库配置（第 431-436 行）。
 
 ### 运行编译
 
 ```bash
+# 首次构建（或依赖变更后重建 builder 镜像）
+REBUILD_BUILDER=1 ./build-complete.sh
+
+# 后续增量编译（复用已有 builder 镜像）
 ./build-complete.sh
 ```
+
+**环境变量**：
+| 变量 | 说明 |
+|------|------|
+| `REBUILD_BUILDER=1` | 强制重建 builder 镜像（添加新依赖后需要） |
+| `IMAGE_NAME` | 生产镜像名称（默认 `ceph:16.2.14-fix4`） |
+
+**Builder 镜像构建流程**：
+1. `docker build` 安装基础 dnf 包（快速覆盖主要编译依赖）
+2. `docker run` + `docker commit` 执行 `install-deps.sh`，将所有剩余依赖（Python 包、条件依赖等）固化到镜像中
+3. 后续编译直接复用 `ceph-builder:complete` 镜像，跳过所有依赖安装
 
 **耗时预估**：
 | 阶段 | 时间 |
 |------|------|
-| Builder 镜像构建 | 3-5 分钟 |
-| install-deps.sh | 5-10 分钟 |
+| Builder 镜像构建（首次） | 3-5 分钟 |
+| install-deps.sh（首次） | 5-10 分钟 |
 | CMake 配置 | 1-2 分钟 |
 | Bundled Boost 编译 | 10-15 分钟 |
 | Ceph 编译 | 30-60 分钟 |
-| **总计** | **约 50-90 分钟** |
+| **总计（首次）** | **约 50-90 分钟** |
+| **总计（增量编译）** | **约 5-30 分钟** |
 
 ### 编译产物
 
@@ -236,13 +275,13 @@ docker run ceph:16.2.14-fix <daemon> [options]
 ### 验证镜像
 
 ```bash
-docker run --rm ceph:16.2.14-fix ceph --version
-# 输出: ceph version 16.2.14-4-g6b8fa999d35 (...) pacific (stable)
+docker run --rm ceph:16.2.14-fix4 ceph --version
+# 输出: ceph version 16.2.14-18-g6491bf5153c (...) pacific (stable)
 
-docker run --rm ceph:16.2.14-fix rgw --version
-docker run --rm ceph:16.2.14-fix mon --version
-docker run --rm ceph:16.2.14-fix osd --version
-docker run --rm ceph:16.2.14-fix mgr --version
+docker run --rm ceph:16.2.14-fix4 rgw --version
+docker run --rm ceph:16.2.14-fix4 mon --version
+docker run --rm ceph:16.2.14-fix4 osd --version
+docker run --rm ceph:16.2.14-fix4 mgr --version
 ```
 
 ### 运行 MGR
@@ -252,7 +291,7 @@ docker run -d --name ceph-mgr \
     --network host \
     -v /etc/ceph:/etc/ceph:ro \
     -v /var/lib/ceph:/var/lib/ceph \
-    ceph:16.2.14-fix mgr --name mgr.node1
+    ceph:16.2.14-fix4 mgr --name mgr.node1
 ```
 
 ### 运行 RGW
@@ -262,7 +301,7 @@ docker run -d --name ceph-rgw \
     --network host \
     -v /etc/ceph:/etc/ceph:ro \
     -v /var/lib/ceph:/var/lib/ceph \
-    ceph:16.2.14-fix rgw --name client.rgw.gw0
+    ceph:16.2.14-fix4 rgw --name client.rgw.gw0
 ```
 
 ### 运行 MON
@@ -272,7 +311,7 @@ docker run -d --name ceph-mon \
     --network host \
     -v /etc/ceph:/etc/ceph \
     -v /var/lib/ceph:/var/lib/ceph \
-    ceph:16.2.14-fix mon --id node1
+    ceph:16.2.14-fix4 mon --id node1
 ```
 
 ### 运行 OSD
@@ -284,7 +323,7 @@ docker run -d --name ceph-osd-0 \
     -v /etc/ceph:/etc/ceph:ro \
     -v /var/lib/ceph:/var/lib/ceph \
     -v /dev:/dev \
-    ceph:16.2.14-fix osd --id 0
+    ceph:16.2.14-fix4 osd --id 0
 ```
 
 ### 执行管理命令
@@ -292,11 +331,11 @@ docker run -d --name ceph-osd-0 \
 ```bash
 docker run --rm \
     -v /etc/ceph:/etc/ceph:ro \
-    ceph:16.2.14-fix ceph -s
+    ceph:16.2.14-fix4 ceph -s
 
 docker run --rm \
     -v /etc/ceph:/etc/ceph:ro \
-    ceph:16.2.14-fix radosgw-admin user list
+    ceph:16.2.14-fix4 radosgw-admin user list
 ```
 
 ### 进入容器调试
@@ -304,7 +343,7 @@ docker run --rm \
 ```bash
 docker run --rm -it \
     -v /etc/ceph:/etc/ceph:ro \
-    ceph:16.2.14-fix bash
+    ceph:16.2.14-fix4 bash
 ```
 
 ---
@@ -313,6 +352,7 @@ docker run --rm -it \
 
 | 文件 | 用途 |
 |------|------|
+| `build-and-package.sh` | 一键编译 + 打包入口脚本 |
 | `build-complete.sh` | 在容器内编译完整 Ceph（含 bundled Boost） |
 | `package-production.sh` | strip 二进制 + 构建生产 Docker 镜像 |
 | `Dockerfile.production` | 生产运行时镜像定义 |
@@ -335,6 +375,10 @@ docker run --rm -it \
 | radosgw 缺 librdkafka | 运行时依赖未安装 | Dockerfile 加 `librdkafka` |
 | ceph CLI 报 ModuleNotFoundError | 缺 Python rados 绑定和 ceph_argparse.py | 打包 cython modules 和 pybind 脚本 |
 | 缺少 ceph-mgr | 旧脚本使用了 `-DWITH_MGR=OFF` | 改为 `-DWITH_MGR=ON` 并重新编译 |
+| Docker DNS 解析失败 | 容器无法解析 vault.centos.org | docker build/run 加 `--network=host` |
+| 去掉 install-deps.sh 后缺依赖 | Dockerfile 包列表不全，liblttng-ust 等缺失 | builder 镜像中执行 install-deps.sh 并 commit |
+| Docker build context 过大（39GB） | COPY 整个源码目录含 build/ | 改用 docker run 挂载 + docker commit |
+| mgr/prometheus Python 3.6 不兼容 | `OrderedDict[K, V]` 需 Python 3.9+ | 去掉泛型下标 |
 
 ---
 
@@ -355,6 +399,11 @@ docker run --rm -it \
 4. **strip debug info 但保留符号**
    - `--strip-debug` 而非 `--strip-all`
    - 产物从 20GB 压缩到 230MB，仍可用 perf/gdb 基本调试
+
+5. **Builder 镜像复用 + install-deps.sh 固化**
+   - 首次构建通过 `docker run` + `docker commit` 将 install-deps.sh 的安装结果固化到镜像
+   - 后续增量编译直接复用镜像，跳过依赖安装步骤，节省 10-15 分钟
+   - 使用挂载而非 COPY 避免 39GB build context 传输
 
 ---
 
