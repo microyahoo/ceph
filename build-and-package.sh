@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Environment variables:
+#   IMAGE_NAME       - production image name (default: ceph:16.2.14-fix4)
+#   REBUILD_BUILDER  - set to 1 to force rebuild the builder image (e.g. after adding new deps)
+
 IMAGE_NAME="${IMAGE_NAME:-ceph:16.2.14-fix4}"
 
 echo "=== Ceph 16.2.14-fix4: Build & Package ==="

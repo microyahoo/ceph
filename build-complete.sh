@@ -10,7 +10,12 @@ echo "similar to official Ceph builds."
 echo ""
 
 # Use Docker to build in CentOS Stream 8 environment
-docker build --network=host -t ceph-builder:complete -f- . <<'DOCKERFILE'
+if docker image inspect ceph-builder:complete >/dev/null 2>&1 && [ "$REBUILD_BUILDER" != "1" ]; then
+    echo "Using existing builder image (ceph-builder:complete)..."
+    echo "  Set REBUILD_BUILDER=1 to force rebuild"
+else
+    echo "Building builder image from scratch (this may take a while)..."
+    docker build --network=host -t ceph-builder:complete -f- . <<'DOCKERFILE'
 FROM quay.io/centos/centos:stream8
 
 # Fix CentOS 8 repos (now EOL, moved to vault)
@@ -70,11 +75,24 @@ RUN dnf install -y \
         python3-sphinx \
         python3-prettytable \
         python3-bcrypt \
+        libbabeltrace-devel \
+        lttng-ust-devel \
+        xfsprogs-devel \
         libudev-devel && \
     dnf clean all
 
 WORKDIR /build
 DOCKERFILE
+
+    # Run install-deps.sh inside a container and commit the result
+    echo "Running install-deps.sh to install remaining dependencies..."
+    docker run --name ceph-builder-deps --network=host \
+        -v "$(pwd):/src:ro" \
+        ceph-builder:complete \
+        bash -c "cd /src && FOR_MAKE_CHECK= ./install-deps.sh && dnf clean all"
+    docker commit ceph-builder-deps ceph-builder:complete
+    docker rm ceph-builder-deps
+fi
 
 echo "Step 1/2: Building all Ceph components with bundled Boost..."
 docker run --rm --network=host \
@@ -83,12 +101,6 @@ docker run --rm --network=host \
     ceph-builder:complete \
     bash -c "
         set -ex
-        cd /src
-
-        # Run install-deps.sh to get Python dependencies
-        export FOR_MAKE_CHECK=
-        ./install-deps.sh || true
-
         cd /build
 
         # Configure complete Ceph build with bundled Boost
