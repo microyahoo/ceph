@@ -3,13 +3,13 @@ from collections import defaultdict
 from pkg_resources import packaging  # type: ignore
 import json
 import math
+import os
 import re
 import threading
 import time
 import enum
 from collections import namedtuple
 from collections import OrderedDict
-from tempfile import NamedTemporaryFile
 
 from mgr_module import CLIReadCommand, MgrModule, MgrStandbyModule, PG_STATES, Option, ServiceInfoT, HandleCommandResult, CLIWriteCommand
 from mgr_util import get_default_addr, profile_method, build_url
@@ -143,7 +143,7 @@ K = TypeVar('K')
 V = TypeVar('V')
 
 
-class LRUCacheDict(OrderedDict[K, V]):
+class LRUCacheDict(OrderedDict):
 
     def __init__(self, maxsize: int, *args: Any, **kwargs: Any) -> None:
         self.maxsize = maxsize
@@ -166,7 +166,7 @@ class HealthHistory:
         self.mgr = mgr
         self.lock = threading.RLock()
         self.max_entries = cast(int, self.mgr.get_localized_module_option('healthcheck_history_max_entries', 1000))
-        self.healthcheck: ThreadSafeLRUCacheDict[str, HealthCheckEvent] = ThreadSafeLRUCacheDict(maxsize=self.max_entries)
+        self.healthcheck = ThreadSafeLRUCacheDict(maxsize=self.max_entries)
         self._load()
 
     def _load(self) -> None:
@@ -311,7 +311,7 @@ class HealthHistory:
         return yaml.safe_dump(self.as_dict(), explicit_start=True, default_flow_style=False)
 
 
-class ThreadSafeLRUCacheDict(LRUCacheDict[K, V]):
+class ThreadSafeLRUCacheDict(LRUCacheDict):
     maxsize: int
 
     def __init__(self, maxsize: int, *args: Any, **kwargs: Any) -> None:
@@ -1757,94 +1757,6 @@ class Module(MgrModule):
     def self_test(self) -> None:
         self.collect()
         self.get_file_sd_config()
-
-    def configure(self, server_addr: str, server_port: int) -> None:
-        cmd = {'prefix': 'orch get-security-config'}
-        ret, out, _ = self.mon_command(cmd)
-
-        if ret == 0 and out is not None:
-            try:
-                security_config = json.loads(out)
-                if security_config.get('security_enabled', False):
-                    self.setup_tls_config(server_addr, server_port)
-                    return
-            except Exception as e:
-                self.log.exception(
-                    'Failed to setup cephadm based secure monitoring stack: %s\n'
-                    'Falling back to default configuration',
-                    e
-                )
-
-        # In any error fallback to plain http mode
-        self.setup_default_config(server_addr, server_port)
-
-    def setup_default_config(self, server_addr: str, server_port: int) -> None:
-        cherrypy.config.update({
-            'server.socket_host': server_addr,
-            'server.socket_port': server_port,
-            'engine.autoreload.on': False,
-            'server.ssl_module': None,
-            'server.ssl_certificate': None,
-            'server.ssl_private_key': None,
-            'tools.gzip.on': True,
-            'tools.gzip.mime_types': [
-                'text/plain',
-                'text/html',
-                'application/json',
-            ],
-            'tools.gzip.compress_level': 6,
-        })
-        # Publish the URI that others may use to access the service we're about to start serving
-        self.set_uri(build_url(scheme='http', host=self.get_server_addr(),
-                     port=server_port, path='/'))
-
-    def setup_tls_config(self, server_addr: str, server_port: int) -> None:
-        # Temporarily disabling the verify function due to issues.
-        # Please check verify_tls_files below to more information.
-        # from mgr_util import verify_tls_files
-        cmd = {'prefix': 'orch certmgr generate-certificates',
-               'module_name': 'prometheus',
-               'format': 'json'}
-        ret, out, err = self.mon_command(cmd)
-        if ret != 0:
-            self.log.error(f'mon command to generate-certificates failed: {err}')
-            return
-        elif out is None:
-            self.log.error('mon command to generate-certificates failed to generate certificates')
-            return
-
-        cert_key = json.loads(out)
-        self.cert_file = NamedTemporaryFile()
-        self.cert_file.write(cert_key['cert'].encode('utf-8'))
-        self.cert_file.flush()  # cert_tmp must not be gc'ed
-        self.key_file = NamedTemporaryFile()
-        self.key_file.write(cert_key['key'].encode('utf-8'))
-        self.key_file.flush()  # pkey_tmp must not be gc'ed
-
-        # Temporarily disabling the verify function due to issues:
-        # See https://github.com/pyca/bcrypt/issues/694 for details.
-        # Re-enable once the issue is resolved.
-        # verify_tls_files(self.cert_file.name, self.key_file.name)
-        cert_file_path, key_file_path = self.cert_file.name, self.key_file.name
-
-        cherrypy.config.update({
-            'server.socket_host': server_addr,
-            'server.socket_port': server_port,
-            'engine.autoreload.on': False,
-            'server.ssl_module': 'builtin',
-            'server.ssl_certificate': cert_file_path,
-            'server.ssl_private_key': key_file_path,
-            'tools.gzip.on': True,
-            'tools.gzip.mime_types': [
-                'text/plain',
-                'text/html',
-                'application/json',
-            ],
-            'tools.gzip.compress_level': 6,
-        })
-        # Publish the URI that others may use to access the service we're about to start serving
-        self.set_uri(build_url(scheme='https', host=self.get_server_addr(),
-                     port=server_port, path='/'))
 
     def serve(self) -> None:
 
