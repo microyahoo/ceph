@@ -4704,7 +4704,7 @@ std::vector<Option> get_global_options() {
     .set_description("max duration to force deferred submit"),
 
     Option("bluestore_rocksdb_options", Option::TYPE_STR, Option::LEVEL_ADVANCED)
-    .set_default("compression=kLZ4Compression,max_write_buffer_number=4,min_write_buffer_number_to_merge=1,recycle_log_file_num=4,write_buffer_size=67108864,writable_file_max_buffer_size=0,compaction_readahead_size=2097152,max_background_compactions=2,max_total_wal_size=1073741824")
+    .set_default("compression=kLZ4Compression,max_write_buffer_number=4,min_write_buffer_number_to_merge=1,recycle_log_file_num=4,write_buffer_size=67108864,writable_file_max_buffer_size=0,compaction_readahead_size=2097152,max_background_jobs=4,max_total_wal_size=1073741824")
     .set_description("Full set of rocksdb settings to override"),
 
     Option("bluestore_rocksdb_options_annex", Option::TYPE_STR, Option::LEVEL_ADVANCED)
